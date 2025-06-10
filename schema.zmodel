@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Post {
+  id        String  @id @default(uuid()) @db.Uuid
+  title     String
+  content   String?
+  published Boolean @default(false)
+  author    User?   @relation(fields: [authorId], references: [id])
+  authorId  String? @db.Uuid @default(auth().id)
+
+  @@map("posts")
+
+  @@index([authorId])
+
+  @@allow('read', published == true)
+  @@allow('create,update,delete', auth() == author)
+}
+
+model User {
+  id    String  @id @default(uuid()) @db.Uuid
+  email String  @unique
+  name  String?
+  imageUrl String? @map("image_url")
+  posts Post[]
+
+  @@map("users")
+
+  @@allow('create,read', true)
+  @@allow('update,delete', auth() == this)
+}
