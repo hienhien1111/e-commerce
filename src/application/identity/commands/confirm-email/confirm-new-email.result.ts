@@ -1,0 +1,1 @@
+export type ConfirmNewEmailResult = void;

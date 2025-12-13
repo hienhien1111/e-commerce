@@ -1,0 +1,130 @@
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    container_name: teko-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${DATABASE_PORT:-5433}:5432"
+    volumes:
+      - teko-db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      POSTGRES_DB: ${DATABASE_NAME:-teko}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DATABASE_USERNAME:-postgres} -d ${DATABASE_NAME:-teko}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - teko-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    shm_size: 256mb
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: teko-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-3001}:${APP_PORT:-3001}"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${DATABASE_USERNAME:-postgres}:${DATABASE_PASSWORD:-postgres}@postgres:5432/${DATABASE_NAME:-teko}}
+      DATABASE_TYPE: ${DATABASE_TYPE:-postgres}
+      DATABASE_HOST: ${DATABASE_HOST:-postgres}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      DATABASE_NAME: ${DATABASE_NAME:-teko}
+      DATABASE_SYNCHRONIZE: ${DATABASE_SYNCHRONIZE:-false}
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-100}
+      DATABASE_SSL_ENABLED: ${DATABASE_SSL_ENABLED:-false}
+      DATABASE_REJECT_UNAUTHORIZED: ${DATABASE_REJECT_UNAUTHORIZED:-false}
+      APP_PORT: ${APP_PORT:-3001}
+      API_PREFIX: ${API_PREFIX:-api}
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-http://localhost:3000}
+      BACKEND_DOMAIN: ${BACKEND_DOMAIN:-http://localhost:3001}
+      AUTH_JWT_TOKEN_EXPIRES_IN: ${AUTH_JWT_TOKEN_EXPIRES_IN:-1d}
+      AUTH_REFRESH_TOKEN_EXPIRES_IN: ${AUTH_REFRESH_TOKEN_EXPIRES_IN:-30d}
+      AUTH_FORGOT_SECRET: ${AUTH_FORGOT_SECRET}
+      AUTH_FORGOT_TOKEN_EXPIRES_IN: ${AUTH_FORGOT_TOKEN_EXPIRES_IN:-1h}
+      AUTH_CONFIRM_EMAIL_SECRET: ${AUTH_CONFIRM_EMAIL_SECRET}
+      AUTH_CONFIRM_EMAIL_TOKEN_EXPIRES_IN: ${AUTH_CONFIRM_EMAIL_TOKEN_EXPIRES_IN:-1d}
+      ACCESS_JWT_PRIVATE_KEY: ${ACCESS_JWT_PRIVATE_KEY}
+      ACCESS_JWT_PUBLIC_KEY: ${ACCESS_JWT_PUBLIC_KEY}
+      REFRESH_JWT_PRIVATE_KEY: ${REFRESH_JWT_PRIVATE_KEY}
+      REFRESH_JWT_PUBLIC_KEY: ${REFRESH_JWT_PUBLIC_KEY}
+      ALPACA_BASE_URL: ${ALPACA_BASE_URL}
+      ALPACA_IS_PAPER: ${ALPACA_IS_PAPER:-true}
+      ALPACA_CLIENT_ID: ${ALPACA_CLIENT_ID}
+      ALPACA_CLIENT_SECRET: ${ALPACA_CLIENT_SECRET}
+      ALPACA_REDIRECT_URI: ${ALPACA_REDIRECT_URI}
+      ALPACA_WS_API_KEY: ${ALPACA_WS_API_KEY}
+      ALPACA_WS_API_SECRET: ${ALPACA_WS_API_SECRET}
+    volumes:
+      - ./src:/usr/src/app/src:${VOLUME_MODE:-rw}
+      - ./package.json:/usr/src/app/package.json:ro
+      - ./bun.lock:/usr/src/app/bun.lock:ro
+      - ./tsconfig.json:/usr/src/app/tsconfig.json:ro
+      - ./nest-cli.json:/usr/src/app/nest-cli.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://localhost:${APP_PORT:-3001}/api/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - teko-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "1"
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  teko-db:
+
+networks:
+  teko-network:
+    driver: bridge

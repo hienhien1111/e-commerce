@@ -1,0 +1,26 @@
+import { User } from '../entities/user';
+import { generateUuidV7 } from '@/utils/uuid-v7';
+import {
+  UserCreationStrategy,
+  CreateUserWithRoleIdInput,
+} from './user-creation.strategy';
+
+export class CreateUserWithRoleIdStrategy
+  implements UserCreationStrategy<CreateUserWithRoleIdInput>
+{
+  execute(input: CreateUserWithRoleIdInput): User {
+    return User._create(
+      {
+        email: input.email,
+        password: input.password,
+        provider: input.provider,
+        socialId: input.socialId,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        role: undefined,
+        roleId: input.roleId,
+      },
+      generateUuidV7(),
+    );
+  }
+}

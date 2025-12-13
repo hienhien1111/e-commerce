@@ -1,16 +1,87 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import eslint from '@eslint/js';
+import prettierRecommended from 'eslint-plugin-prettier/recommended';
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsparser from '@typescript-eslint/parser';
+import globals from 'globals';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+export default [
+  eslint.configs.recommended,
+  {
+    files: ['**/*.ts'],
+    ignores: ['**/*.spec.ts', 'test/**/*.ts'],
+    languageOptions: {
+      parser: tsparser,
+      globals: {
+        ...globals.node,
+      },
+      parserOptions: {
+        project: './tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
+        sourceType: 'module',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
+    rules: {
+      ...tseslint.configs.recommended.rules,
+      '@typescript-eslint/interface-name-prefix': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      'no-undef': 'off',
+    },
+  },
+  {
+    files: ['**/*.spec.ts', 'test/**/*.ts'],
+    languageOptions: {
+      parser: tsparser,
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+      parserOptions: {
+        project: './tsconfig.spec.json',
+        tsconfigRootDir: import.meta.dirname,
+        sourceType: 'module',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
+    rules: {
+      ...tseslint.configs.recommended.rules,
+      '@typescript-eslint/interface-name-prefix': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      'no-undef': 'off',
+    },
+  },
+  prettierRecommended,
+  {
+    ignores: [
+      'eslint.config.mjs',
+      'docs/.vuepress/**/*',
+      'src/generated/i18n.generated.ts',
+      'dist/**/*',
+      'node_modules/**/*',
+    ],
+  },
 ];
-
-export default eslintConfig;

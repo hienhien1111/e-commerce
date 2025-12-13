@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Documentation
 
-## Getting Started
+Welcome to the project documentation. This directory contains comprehensive guides and documentation for understanding and working with the codebase.
 
-First, run the development server:
+## Available Documentation
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### 📐 [Architecture Documentation](./docs/architecture.md)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Comprehensive guide to the project's architecture, including:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Clean Architecture layers
+- CQRS pattern implementation
+- Hexagonal Architecture (Ports & Adapters)
+- Module structure
+- Dependency flow
+- Best practices
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Read this first** to understand how the codebase is organized and why certain patterns are used.
 
-## Learn More
+### 🏗️ [Creating a New Module](./docs/creating-a-new-module.md)
 
-To learn more about Next.js, take a look at the following resources:
+Step-by-step guide for creating a new feature module, including:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Directory structure
+- Domain layer setup
+- Application layer (commands, queries, handlers)
+- Infrastructure layer (adapters)
+- Presentation layer (controllers, DTOs)
+- Module registration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Use this guide** when you need to add new features to the application.
 
-## Deploy on Vercel
+### 🧪 [Testing Auth Endpoints](./docs/testing-auth-endpoints.md)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Complete guide for testing authentication endpoints, including:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Base URL and API structure
+- Testing methods (Swagger, cURL, Postman)
+- Step-by-step testing flow
+- Request/response examples
+- Common issues and troubleshooting
+- Complete testing scripts
+
+**Use this guide** to test authentication functionality and understand the API flow.
+
+## Quick Start
+
+1. **New to the project?** Start with [Architecture Documentation](./architecture.md)
+2. **Want to test the API?** Check [Testing Auth Endpoints](./testing-auth-endpoints.md)
+3. **Need to add a feature?** Follow [Creating a New Module](./creating-a-new-module.md)
+4. **Reference implementation:** Check the `auth` module (`src/auth/`) as an example
+
+## Contributing
+
+When adding new documentation:
+
+- Keep it clear and concise
+- Include code examples
+- Update this README if adding new documents
+- Follow the existing documentation style

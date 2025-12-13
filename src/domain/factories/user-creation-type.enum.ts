@@ -1,0 +1,6 @@
+export enum UserCreationType {
+  BASIC = 'BASIC',
+  WITH_ROLE = 'WITH_ROLE',
+  WITH_ROLE_ID = 'WITH_ROLE_ID',
+  RECONSTITUTE = 'RECONSTITUTE',
+}

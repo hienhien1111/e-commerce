@@ -1,0 +1,148 @@
+import { BaseDomainModel } from '@/shared/domain/base-domain-model';
+import { Role } from '@/domain/entities/role';
+import { AuthProvidersEnum } from '@/domain/enums/auth-providers.enum';
+
+export interface UserEssentialProps {
+  email: string | null;
+  password?: string;
+  provider: AuthProvidersEnum | string;
+  socialId?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
+type UserRoleProps = {
+  role?: Role | null;
+  roleId?: string | null;
+};
+
+type UserInternalProps = UserEssentialProps & UserRoleProps;
+
+export class User extends BaseDomainModel<UserInternalProps> {
+  private _deletedAt?: Date;
+
+  private constructor(
+    props: UserInternalProps,
+    id: string,
+    createdAt?: Date,
+    updatedAt?: Date,
+    deletedAt?: Date,
+    shouldValidate = true,
+  ) {
+    super(props, id, createdAt, updatedAt);
+    this._deletedAt = deletedAt;
+    if (shouldValidate) {
+      this.validate();
+    }
+  }
+
+  static _create(
+    props: UserInternalProps,
+    id: string,
+    createdAt?: Date,
+    updatedAt?: Date,
+    deletedAt?: Date,
+    shouldValidate = true,
+  ): User {
+    return new User(props, id, createdAt, updatedAt, deletedAt, shouldValidate);
+  }
+
+  private validate(): void {
+    if (!this.props.provider) {
+      throw new Error('User provider is required');
+    }
+
+    if (this.props.provider === AuthProvidersEnum.EMAIL && !this.props.email) {
+      throw new Error('Email is required for email provider');
+    }
+  }
+
+  get email(): UserEssentialProps['email'] {
+    return this.props.email;
+  }
+
+  get password(): UserEssentialProps['password'] {
+    return this.props.password;
+  }
+
+  get provider(): UserEssentialProps['provider'] {
+    return this.props.provider;
+  }
+
+  get socialId(): UserEssentialProps['socialId'] {
+    return this.props.socialId;
+  }
+
+  get firstName(): UserEssentialProps['firstName'] {
+    return this.props.firstName;
+  }
+
+  get lastName(): UserEssentialProps['lastName'] {
+    return this.props.lastName;
+  }
+
+  get role(): UserRoleProps['role'] {
+    return this.props.role;
+  }
+
+  get roleId(): UserRoleProps['roleId'] {
+    return this.props.roleId;
+  }
+
+  get deletedAt(): Date | undefined {
+    return this._deletedAt;
+  }
+
+  updateEmail(email: NonNullable<UserEssentialProps['email']>): void {
+    this.props.email = email;
+    this.touch();
+  }
+
+  updatePassword(password: NonNullable<UserEssentialProps['password']>): void {
+    this.props.password = password;
+    this.touch();
+  }
+
+  updateProfile(
+    firstName?: UserEssentialProps['firstName'],
+    lastName?: UserEssentialProps['lastName'],
+  ): void {
+    if (firstName !== undefined) {
+      this.props.firstName = firstName;
+    }
+    if (lastName !== undefined) {
+      this.props.lastName = lastName;
+    }
+    this.touch();
+  }
+
+  assignRole(role: NonNullable<UserRoleProps['role']>): void {
+    this.props.role = role;
+    this.props.roleId = role.id;
+    this.touch();
+  }
+
+  loadRole(role: NonNullable<UserRoleProps['role']>): void {
+    this.props.role = role;
+    this.props.roleId = role.id;
+  }
+
+  clearRole(): void {
+    this.props.role = null;
+    this.props.roleId = null;
+    this.touch();
+  }
+
+  toJSON(): Record<string, unknown> {
+    return {
+      ...super.toJSON(),
+      email: this.email,
+      provider: this.provider,
+      socialId: this.socialId ?? null,
+      firstName: this.firstName ?? null,
+      lastName: this.lastName ?? null,
+      role: this.role?.toJSON() ?? null,
+      deletedAt: this.deletedAt ?? null,
+    };
+  }
+}

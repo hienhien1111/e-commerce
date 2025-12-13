@@ -1,0 +1,293 @@
+erDiagram
+    users {
+        uuid id PK
+        varchar email UK "unique, not null"
+        varchar password "nullable"
+        varchar state "not null, default 'active', enum: 'active', 'inactive', 'suspended', 'deleted'"
+        timestamptz verified_at "nullable"
+        timestamptz first_login_at "nullable"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+    }
+
+    user_profiles {
+        uuid id PK "shared PK with users.id"
+        uuid user_id FK "not null, unique"
+        varchar first_name "nullable"
+        varchar last_name "nullable"
+        varchar phone "nullable"
+        date date_of_birth "nullable"
+        varchar country "nullable"
+        text address "nullable"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+    }
+
+    trading_accounts {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar provider "not null, enum: 'alpaca', 'interactive_brokers', etc."
+        varchar account_number "not null"
+        varchar api_key_encrypted "nullable"
+        varchar status "not null, default 'pending', enum: 'pending', 'active', 'suspended', 'closed'"
+        varchar currency "not null, default 'USD'"
+        decimal last_equity "not null, default 0"
+        jsonb metadata "nullable, provider-specific data"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+        timestamptz deleted_at "nullable"
+    }
+
+    payment_accounts {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar provider "not null, enum: 'transfi', 'stripe', etc."
+        varchar account_id "not null"
+        varchar currency "not null, default 'USD'"
+        varchar status "not null, default 'pending', enum: 'pending', 'active', 'suspended', 'closed'"
+        jsonb metadata "nullable, provider-specific data"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+        timestamptz deleted_at "nullable"
+    }
+
+    accounts {
+        uuid id PK
+        uuid user_id FK "not null, unique"
+        decimal balance "not null, default 0"
+        varchar currency "not null, default 'VND'"
+        varchar status "not null, default 'pending', enum: 'pending', 'active', 'suspended'"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+    }
+
+    kyc_verifications {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar provider "not null, default 'vnpt_ekyc'"
+        varchar external_verification_id UK "unique not null, VNPT session_id"
+        varchar status "not null, default 'pending', enum: 'pending', 'in_progress', 'verified', 'failed', 'rejected', 'manual_review'"
+        text rejection_reason "nullable"
+        decimal confidence_score "nullable, overall verification confidence"
+        timestamptz verified_at "nullable"
+        timestamptz expires_at "nullable"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+        timestamptz deleted_at "nullable"
+    }
+
+    kyc_sessions {
+        uuid id PK
+        uuid kyc_verification_id FK "not null"
+        varchar session_token "not null, VNPT token"
+        varchar step "not null, enum: 'ocr_front', 'ocr_back', 'nfc', 'liveness', 'face_match', 'complete'"
+        jsonb session_data "nullable, store progress data"
+        timestamptz expires_at "nullable"
+        timestamptz created_at "not null, default now()"
+    }
+
+    kyc_documents {
+        uuid id PK
+        uuid kyc_verification_id FK "not null"
+        varchar document_type "not null, enum: 'id_card_front', 'id_card_back', 'passport', 'selfie'"
+        varchar id_number "nullable, extracted ID number"
+        varchar full_name "nullable, extracted full name"
+        date date_of_birth "nullable, extracted DOB"
+        varchar gender "nullable, extracted gender"
+        varchar nationality "nullable, default 'Việt Nam'"
+        varchar place_of_origin "nullable, extracted place of origin"
+        varchar place_of_residence "nullable, extracted place of residence"
+        date issue_date "nullable, extracted issue date"
+        date expiry_date "nullable, extracted expiry date"
+        boolean chip_verified "not null, default false, NFC chip verification"
+        boolean c06_verified "not null, default false, verified via Bộ Công An"
+        decimal ocr_accuracy_score "nullable, OCR extraction accuracy"
+        decimal authenticity_score "nullable, document authenticity score"
+        decimal face_match_score "nullable, face matching score"
+        decimal liveness_score "nullable, liveness detection score"
+        jsonb raw_ocr_data "nullable, full OCR response from VNPT"
+        jsonb raw_nfc_data "nullable, chip data if available"
+        timestamptz created_at "not null, default now()"
+    }
+
+    investment_history {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar type "not null, enum: 'deposit', 'withdrawal', 'buy', 'sell', 'dividend', 'fee', 'refund'"
+        decimal amount "not null"
+        varchar currency "not null"
+        varchar investment_type "nullable, enum: 'stock', 'etf', 'crypto', 'blockchain'"
+        varchar status "not null, enum: 'pending', 'processing', 'completed', 'failed', 'cancelled'"
+        varchar order_type "nullable, enum: 'market', 'limit', 'stop'"
+        varchar external_reference_id "nullable, Alpaca/TransFi transaction ID"
+        uuid trading_account_id FK "nullable"
+        uuid payment_account_id FK "nullable"
+        jsonb metadata "nullable, transaction details"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+        timestamptz completed_at "nullable"
+    }
+
+    portfolio_holdings {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar symbol "not null, e.g., 'NVDA', 'AMD'"
+        varchar asset_name "not null"
+        varchar asset_type "not null, enum: 'stock', 'etf', 'crypto'"
+        decimal quantity "not null"
+        decimal average_price "not null"
+        decimal current_price "nullable"
+        decimal total_cost "not null"
+        decimal current_value "not null"
+        decimal gain_loss "not null"
+        decimal gain_loss_percentage "not null"
+        boolean is_favorite "not null, default false"
+        timestamptz last_synced_at "not null"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+    }
+
+    user_favorites {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar symbol "not null"
+        timestamptz added_at "not null, default now()"
+    }
+
+    streaks {
+        uuid id PK
+        varchar name "not null"
+        text description "nullable"
+        varchar type "not null, enum: 'daily', 'weekly', 'monthly', 'custom'"
+        integer duration "not null"
+        decimal target_amount "nullable"
+        jsonb reward "nullable"
+        boolean is_active "not null, default true"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+    }
+
+    user_streak_progress {
+        uuid id PK
+        uuid user_id FK "not null"
+        uuid streak_id FK "not null"
+        integer current_streak "not null, default 0"
+        decimal total_invested "not null, default 0"
+        date last_investment_date "nullable"
+        timestamptz completed_at "nullable"
+        boolean reward_claimed "not null, default false"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+    }
+
+    notifications {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar type "not null, enum: 'trade', 'deposit', 'withdrawal', 'kyc', 'system', 'challenge'"
+        varchar title "not null"
+        text message "not null"
+        jsonb data "nullable"
+        boolean is_read "not null, default false"
+        timestamptz read_at "nullable"
+        timestamptz created_at "not null, default now()"
+    }
+
+    bank_accounts {
+        uuid id PK
+        uuid user_id FK "not null"
+        varchar bank_name "not null"
+        varchar account_number "not null"
+        varchar account_holder_name "not null"
+        varchar routing_number "nullable"
+        varchar swift_code "nullable"
+        varchar currency "not null"
+        boolean is_primary "not null, default false"
+        boolean is_verified "not null, default false"
+        timestamptz verified_at "nullable"
+        timestamptz created_at "not null, default now()"
+        timestamptz updated_at "not null, default now()"
+        timestamptz deleted_at "nullable"
+    }
+
+    roles {
+        uuid id PK
+        varchar name "not null, unique"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+        timestamptz deleted_at "nullable"
+    }
+
+    permissions {
+        uuid id PK
+        varchar name "not null, unique, format: 'action:subject' (e.g., 'manage:users', 'create:kyc')"
+        varchar action "not null, enum: 'manage', 'create', 'read', 'update', 'delete'"
+        varchar subject "not null, enum: 'user', 'permission', 'role', 'all', 'kyc', 'trading_account', 'payment_account', 'account', 'investment', 'transaction'"
+        jsonb conditions "nullable"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+        timestamptz deleted_at "nullable"
+    }
+
+    user_roles {
+        uuid user_id FK "not null"
+        uuid role_id FK "not null"
+        timestamptz assigned_at "not null, default now()"
+        uuid assigned_by FK "nullable, FK to users"
+        PRIMARY_KEY "user_id, role_id"
+    }
+
+    role_permissions {
+        uuid role_id FK
+        uuid permission_id FK
+    }
+
+    sessions {
+        uuid id PK
+        uuid user_id FK "not null, indexed"
+        varchar hash "not null"
+        timestamptz created_at "not null"
+        timestamptz updated_at "not null"
+        timestamptz deleted_at "nullable"
+    }
+
+    webauthn_credentials {
+        uuid id PK
+        uuid user_id FK "not null, indexed"
+        text credential_id "not null, unique"
+        text public_key "not null"
+        bigint counter "not null, default 0"
+        jsonb transports "nullable"
+        boolean backed_up "not null, default false"
+        varchar device_type "nullable, length 50"
+        uuid aaguid "nullable"
+        timestamptz created_at "not null"
+        timestamptz last_used_at "nullable"
+    }
+
+    %% Relationships
+    users ||--|| user_profiles : "has (shared PK)"
+    users ||--o{ trading_accounts : "has"
+    users ||--o{ payment_accounts : "has"
+    users ||--|| accounts : "has"
+    users ||--o{ kyc_verifications : "has"
+    kyc_verifications ||--o{ kyc_sessions : "tracks"
+    kyc_verifications ||--o{ kyc_documents : "contains"
+    users ||--o{ investment_history : "has"
+    users ||--o{ portfolio_holdings : "has"
+    users ||--o{ user_favorites : "has"
+    users ||--o{ user_streak_progress : "has"
+    users ||--o{ notifications : "has"
+    users ||--o{ bank_accounts : "has"
+    users ||--o{ sessions : "has"
+    users ||--o{ webauthn_credentials : "has"
+    users ||--o{ user_roles : "has"
+    roles ||--o{ user_roles : "belongs_to"
+    
+    trading_accounts ||--o{ investment_history : "used_for"
+    payment_accounts ||--o{ investment_history : "used_for"
+    
+    streaks ||--o{ user_streak_progress : "tracked_in"
+    
+    roles ||--o{ role_permissions : "has"
+    permissions ||--o{ role_permissions : "belongs_to"
+
