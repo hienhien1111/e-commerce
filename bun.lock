@@ -17,7 +17,6 @@
         "@nestjs/platform-socket.io": "^11.1.9",
         "@nestjs/swagger": "11.2.0",
         "@nestjs/terminus": "^11.0.0",
-        "@nestjs/typeorm": "11.0.0",
         "@nestjs/websockets": "^11.1.9",
         "@prisma/adapter-pg": "^7.8.0",
         "@prisma/client": "^7.8.0",
@@ -37,7 +36,6 @@
         "reflect-metadata": "^0.2.2",
         "rimraf": "6.0.1",
         "rxjs": "7.8.2",
-        "typeorm": "0.3.25",
         "uuid": "^13.0.0",
         "uuidv7": "^1.0.2",
         "ws": "^8.18.3",
@@ -63,7 +61,6 @@
         "@types/ws": "^8.18.1",
         "@typescript-eslint/eslint-plugin": "8.34.1",
         "@typescript-eslint/parser": "8.34.1",
-        "env-cmd": "10.1.0",
         "eslint": "9.29.0",
         "eslint-config-prettier": "10.1.5",
         "eslint-plugin-prettier": "5.5.0",
@@ -1038,8 +1035,6 @@
     "enhanced-resolve": ["enhanced-resolve@5.18.3", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.2.0" } }, "sha512-d4lC8xfavMeBjzGr2vECC3fsGXziXZQyJxD868h2M/mBI3PwAuODxAkLkq5HYuvrPYcUtiLzsTo8U3PgX3Ocww=="],
 
     "enquirer": ["enquirer@2.4.1", "", { "dependencies": { "ansi-colors": "^4.1.1", "strip-ansi": "^6.0.1" } }, "sha512-rRqJg/6gd538VHvR3PSrdRBb/1Vy2YfzHqzvbhGIQpDRKIa4FgV/54b5Q1xYSxOOwKvjXweS26E0Q+nAMwp2pQ=="],
-
-    "env-cmd": ["env-cmd@10.1.0", "", { "dependencies": { "commander": "^4.0.0", "cross-spawn": "^7.0.0" }, "bin": { "env-cmd": "bin/env-cmd.js" } }, "sha512-mMdWTT9XKN7yNth/6N6g2GuKuJTsKMDHlQFUDacb/heQRRWOTIZ42t1rMHnQu4jYxU1ajdTeJM+9eEETlqToMA=="],
 
     "env-paths": ["env-paths@2.2.1", "", {}, "sha512-+h1lkLKhZMTYjog1VEpJNG7NZJWcuc2DDk/qsqSTRRCOXiLjeQ1d1/udrUGhqMxUgAlwKNZ0cf2uqan5GLuS2A=="],
 

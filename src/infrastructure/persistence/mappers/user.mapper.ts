@@ -1,22 +1,41 @@
-import { RoleEntity } from '@/infrastructure/persistence/entities/role.entity';
-import { RoleMapper } from '@/infrastructure/persistence/mappers/role.mapper';
+import type {
+  User as PrismaUser,
+  UserRole as PrismaUserRole,
+  Role as PrismaRole,
+  RolePermission as PrismaRolePermission,
+  Permission as PrismaPermission,
+} from '@/generated/prisma/client';
 import { UserFactory } from '@/domain/factories/user.factory';
 import { User } from '@/domain/entities/user';
-import { UserEntity } from '../entities/user.entity';
 import { AuthProvidersEnum } from '@/domain/enums/auth-providers.enum';
+import { RoleMapper } from '@/infrastructure/persistence/mappers/role.mapper';
+
+type PrismaRoleWithPermissions = PrismaRole & {
+  permissions?: (PrismaRolePermission & { permission: PrismaPermission })[];
+};
+
+type PrismaUserRoleWithRole = PrismaUserRole & {
+  role: PrismaRoleWithPermissions;
+};
+
+export type PrismaUserWithRelations = PrismaUser & {
+  roles?: PrismaUserRoleWithRole[];
+};
 
 export class UserMapper {
-  static toDomain(raw: UserEntity): User {
-    const firstRole =
+  static toDomain(raw: PrismaUserWithRelations): User {
+    const firstUserRole =
       raw.roles && raw.roles.length > 0 ? raw.roles[0] : undefined;
+    const firstRole = firstUserRole?.role;
+
     return UserFactory.reconstitute({
       id: raw.id,
       email: raw.email,
-      password: raw.password,
+      password: raw.password ?? undefined,
       provider: raw.provider || AuthProvidersEnum.EMAIL,
       socialId: raw.socialId ?? null,
-      firstName: raw.firstName,
-      lastName: raw.lastName,
+      firstName: raw.firstName ?? null,
+      lastName: raw.lastName ?? null,
       role: firstRole ? RoleMapper.toDomain(firstRole) : null,
       roleId: firstRole ? firstRole.id : null,
       createdAt: raw.createdAt,
@@ -25,24 +44,34 @@ export class UserMapper {
     });
   }
 
-  static toPersistence(domainEntity: User): UserEntity {
-    const roles: RoleEntity[] = [];
-    if (domainEntity.role) {
-      roles.push(RoleMapper.toPersistence(domainEntity.role));
-    }
-
-    const persistenceEntity = new UserEntity();
-    persistenceEntity.id = domainEntity.id;
-    persistenceEntity.email = domainEntity.email;
-    persistenceEntity.password = domainEntity.password;
-    persistenceEntity.provider = domainEntity.provider;
-    persistenceEntity.socialId = domainEntity.socialId ?? null;
-    persistenceEntity.firstName = domainEntity.firstName ?? null;
-    persistenceEntity.lastName = domainEntity.lastName ?? null;
-    persistenceEntity.roles = roles;
-    persistenceEntity.createdAt = domainEntity.createdAt;
-    persistenceEntity.updatedAt = domainEntity.updatedAt;
-    persistenceEntity.deletedAt = domainEntity.deletedAt ?? null;
-    return persistenceEntity;
+  /**
+   * Returns scalar columns suitable for `prisma.user.create({ data })` /
+   * `prisma.user.update({ data })`. The `roles` join table is managed
+   * separately by the repository (nested writes on `roles`).
+   */
+  static toPersistence(domainEntity: User): {
+    id: string;
+    email: string | null;
+    password: string | null;
+    provider: string;
+    socialId: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt: Date | null;
+  } {
+    return {
+      id: domainEntity.id,
+      email: domainEntity.email ?? null,
+      password: domainEntity.password ?? null,
+      provider: String(domainEntity.provider),
+      socialId: domainEntity.socialId ?? null,
+      firstName: domainEntity.firstName ?? null,
+      lastName: domainEntity.lastName ?? null,
+      createdAt: domainEntity.createdAt,
+      updatedAt: domainEntity.updatedAt,
+      deletedAt: domainEntity.deletedAt ?? null,
+    };
   }
 }

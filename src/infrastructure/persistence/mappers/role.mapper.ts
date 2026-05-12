@@ -1,29 +1,42 @@
-import { RoleEntity } from '../entities/role.entity';
-import { RoleFactory } from '@/domain/factories/role.factory';
+import type {
+  Role as PrismaRole,
+  RolePermission as PrismaRolePermission,
+  Permission as PrismaPermission,
+} from '@/generated/prisma/client';
 import { Role } from '@/domain/entities/role';
+import { RoleFactory } from '@/domain/factories/role.factory';
 import { PermissionMapper } from '@/infrastructure/persistence/mappers/permission.mapper';
 
-export class RoleMapper {
-  static toDomain(raw: RoleEntity): Role {
-    const permissions = raw.permissions?.map((p) =>
-      PermissionMapper.toDomain(p),
-    );
+export type PrismaRoleWithRelations = PrismaRole & {
+  permissions?: (PrismaRolePermission & { permission: PrismaPermission })[];
+};
 
-    const now = new Date();
+export class RoleMapper {
+  static toDomain(raw: PrismaRoleWithRelations): Role {
+    const permissions = raw.permissions
+      ? raw.permissions.map((rp) => PermissionMapper.toDomain(rp.permission))
+      : null;
 
     return RoleFactory.reconstitute({
       id: raw.id,
       name: raw.name ?? '',
-      permissions: permissions ?? null,
-      createdAt: now,
-      updatedAt: now,
+      permissions,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt,
     });
   }
 
-  static toPersistence(domainEntity: Role): RoleEntity {
-    const persistenceEntity = new RoleEntity();
-    persistenceEntity.id = domainEntity.id;
-    persistenceEntity.name = domainEntity.name;
-    return persistenceEntity;
+  static toPersistence(domainEntity: Role): {
+    id: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+  } {
+    return {
+      id: domainEntity.id,
+      name: domainEntity.name,
+      createdAt: domainEntity.createdAt,
+      updatedAt: domainEntity.updatedAt,
+    };
   }
 }

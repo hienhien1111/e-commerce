@@ -1,18 +1,27 @@
-import { UserEntity } from '@/infrastructure/persistence/entities/user.entity';
-import { UserMapper } from '@/infrastructure/persistence/mappers/user.mapper';
+import type {
+  Session as PrismaSession,
+  User as PrismaUser,
+} from '@/generated/prisma/client';
 import { SessionFactory } from '@/domain/factories/session.factory';
 import { Session } from '@/domain/entities/session';
-import { SessionEntity } from '../entities/session.entity';
+import {
+  UserMapper,
+  type PrismaUserWithRelations,
+} from '@/infrastructure/persistence/mappers/user.mapper';
+
+export type PrismaSessionWithUser = PrismaSession & {
+  user?: PrismaUserWithRelations | PrismaUser | null;
+};
 
 export class SessionMapper {
-  static toDomain(raw: SessionEntity): Session {
+  static toDomain(raw: PrismaSessionWithUser): Session {
     if (!raw.user) {
-      throw new Error('Session entity must have a user');
+      throw new Error('Session row must include the related user');
     }
 
     return SessionFactory.reconstitute({
       id: raw.id,
-      user: UserMapper.toDomain(raw.user),
+      user: UserMapper.toDomain(raw.user as PrismaUserWithRelations),
       hash: raw.hash,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
@@ -20,18 +29,25 @@ export class SessionMapper {
     });
   }
 
-  static toPersistence(domainEntity: Session): SessionEntity {
-    const user = new UserEntity();
-    user.id = domainEntity.user.id;
-
-    const persistenceEntity = new SessionEntity();
-    persistenceEntity.id = domainEntity.id;
-    persistenceEntity.hash = domainEntity.hash;
-    persistenceEntity.user = user;
-    persistenceEntity.createdAt = domainEntity.createdAt;
-    persistenceEntity.updatedAt = domainEntity.updatedAt;
-    persistenceEntity.deletedAt = domainEntity.deletedAt ?? null;
-
-    return persistenceEntity;
+  /**
+   * Returns scalar columns suitable for `prisma.session.create({ data })` /
+   * `prisma.session.update({ data })`. The relation is set via `userId`.
+   */
+  static toPersistence(domainEntity: Session): {
+    id: string;
+    userId: string;
+    hash: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt: Date | null;
+  } {
+    return {
+      id: domainEntity.id,
+      userId: domainEntity.user.id,
+      hash: domainEntity.hash,
+      createdAt: domainEntity.createdAt,
+      updatedAt: domainEntity.updatedAt,
+      deletedAt: domainEntity.deletedAt ?? null,
+    };
   }
 }

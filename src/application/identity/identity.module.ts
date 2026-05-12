@@ -1,16 +1,11 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 
 import authConfig from '@/infrastructure/config/auth.config';
 import webauthnConfig from '@/infrastructure/config/webauthn.config';
-
-import { UserEntity } from '@/infrastructure/persistence/entities/user.entity';
-import { SessionEntity } from '@/infrastructure/persistence/entities/session.entity';
-import { WebAuthnCredentialEntity } from '@/infrastructure/persistence/entities/webauthn-credential.entity';
 
 import { AuthController } from '@/presentation/http/controllers/auth.controller';
 import { UserController } from '@/presentation/http/controllers/user.controller';
@@ -25,9 +20,9 @@ import { PasswordHasherModule } from '@/infrastructure/providers/password-hasher
 import { JwtTokenProvider } from '@/infrastructure/providers/jwt-token-provider';
 import { InMemoryChallengeStore } from '@/infrastructure/providers/in-memory-challenge-store';
 
-import { TypeOrmUserRepository } from '@/infrastructure/persistence/repositories/user.repository';
-import { TypeOrmSessionRepository } from '@/infrastructure/persistence/repositories/session.repository';
-import { WebAuthnCredentialRepositoryImpl } from '@/infrastructure/persistence/repositories/webauthn-credential.repository.impl';
+import { PrismaUserRepository } from '@/infrastructure/persistence/repositories/prisma-user.repository';
+import { PrismaSessionRepository } from '@/infrastructure/persistence/repositories/prisma-session.repository';
+import { PrismaWebAuthnCredentialRepository } from '@/infrastructure/persistence/repositories/prisma-webauthn-credential.repository';
 
 import { LoginStrategyResolver } from '@/application/identity/factories/auth-strategy.factory';
 import { EmailPasswordLoginStrategy } from '@/application/identity/strategies/email-password-auth.strategy';
@@ -100,11 +95,6 @@ const EventHandlers = [
 @Module({
   imports: [
     CqrsModule,
-    TypeOrmModule.forFeature([
-      UserEntity,
-      SessionEntity,
-      WebAuthnCredentialEntity,
-    ]),
     ConfigModule.forFeature(authConfig),
     ConfigModule.forFeature(webauthnConfig),
     PassportModule,
@@ -129,9 +119,9 @@ const EventHandlers = [
     JwtTokenProvider,
     InMemoryChallengeStore,
 
-    TypeOrmUserRepository,
-    TypeOrmSessionRepository,
-    WebAuthnCredentialRepositoryImpl,
+    PrismaUserRepository,
+    PrismaSessionRepository,
+    PrismaWebAuthnCredentialRepository,
 
     ...CommandHandlers,
     ...QueryHandlers,
@@ -143,15 +133,15 @@ const EventHandlers = [
     },
     {
       provide: SESSION_REPOSITORY_PORT,
-      useExisting: TypeOrmSessionRepository,
+      useExisting: PrismaSessionRepository,
     },
     {
       provide: USER_REPOSITORY_PORT,
-      useExisting: TypeOrmUserRepository,
+      useExisting: PrismaUserRepository,
     },
     {
       provide: WEBAUTHN_CREDENTIAL_REPOSITORY_PORT,
-      useExisting: WebAuthnCredentialRepositoryImpl,
+      useExisting: PrismaWebAuthnCredentialRepository,
     },
     {
       provide: CHALLENGE_STORE_PORT,

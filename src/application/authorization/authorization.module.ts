@@ -1,9 +1,5 @@
 import { Module, Global } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
-import { TypeOrmModule } from '@nestjs/typeorm';
-
-import { RoleEntity } from '@/infrastructure/persistence/entities/role.entity';
-import { PermissionEntity } from '@/infrastructure/persistence/entities/permission.entity';
 
 import { RoleController } from '@/presentation/http/controllers/role.controller';
 
@@ -11,8 +7,8 @@ import { RolesGuard } from '@/infrastructure/guards/roles.guard';
 import { PermissionsGuard } from '@/infrastructure/guards/permissions.guard';
 import { CaslAbilityFactory } from '@/infrastructure/casl/casl-ability.factory';
 
-import { TypeOrmRoleRepository } from '@/infrastructure/persistence/repositories/role.repository';
-import { TypeOrmPermissionRepository } from '@/infrastructure/persistence/repositories/permission.repository';
+import { PrismaRoleRepository } from '@/infrastructure/persistence/repositories/prisma-role.repository';
+import { PrismaPermissionRepository } from '@/infrastructure/persistence/repositories/prisma-permission.repository';
 
 import { GetRoleHandler } from '@/application/authorization/queries/get-role';
 import { GetRolesHandler } from '@/application/authorization/queries/get-roles';
@@ -24,28 +20,25 @@ const QueryHandlers = [GetRoleHandler, GetRolesHandler];
 
 @Global()
 @Module({
-  imports: [
-    CqrsModule,
-    TypeOrmModule.forFeature([RoleEntity, PermissionEntity]),
-  ],
+  imports: [CqrsModule],
   controllers: [RoleController],
   providers: [
     RolesGuard,
     PermissionsGuard,
     CaslAbilityFactory,
 
-    TypeOrmRoleRepository,
-    TypeOrmPermissionRepository,
+    PrismaRoleRepository,
+    PrismaPermissionRepository,
 
     ...QueryHandlers,
 
     {
       provide: ROLE_REPOSITORY_PORT,
-      useExisting: TypeOrmRoleRepository,
+      useExisting: PrismaRoleRepository,
     },
     {
       provide: PERMISSION_REPOSITORY_PORT,
-      useExisting: TypeOrmPermissionRepository,
+      useExisting: PrismaPermissionRepository,
     },
   ],
   exports: [
