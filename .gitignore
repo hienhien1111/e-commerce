@@ -39,3 +39,9 @@ lerna-debug.log*
 .env
 /ormconfig.json
 .codegpt
+
+# Prisma 7 generated client (regenerated via `bunx prisma generate`)
+/src/generated/
+
+# Prisma local artifacts
+/prisma/.cache/

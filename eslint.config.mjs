@@ -79,7 +79,7 @@ export default [
     ignores: [
       'eslint.config.mjs',
       'docs/.vuepress/**/*',
-      'src/generated/i18n.generated.ts',
+      'src/generated/**/*',
       'dist/**/*',
       'node_modules/**/*',
     ],
