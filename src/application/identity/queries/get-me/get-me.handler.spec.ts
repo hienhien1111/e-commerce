@@ -3,7 +3,7 @@ import { GetMeHandler } from './get-me.handler';
 import { GetMeQuery } from './get-me.query';
 import { USER_REPOSITORY_PORT } from '../../ports/user/user.repository.port.token';
 import { User } from '@/domain/entities/user';
-import type { JwtPayloadType } from '@/infrastructure/config/jwt-payload.type';
+import type { JwtPayloadType } from '@/application/identity/types/jwt-payload.type';
 
 describe('GetMeHandler', () => {
   let handler: GetMeHandler;

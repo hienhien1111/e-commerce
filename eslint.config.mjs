@@ -75,6 +75,101 @@ export default [
     },
   },
   prettierRecommended,
+  // Domain layer isolation: src/domain must NOT import frameworks or ORM
+  {
+    files: ['src/domain/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@nestjs/*', '@nestjs/**'],
+              message:
+                'Domain layer must not import NestJS. Move framework concerns to application/infrastructure.',
+            },
+            {
+              group: [
+                '@prisma/*',
+                '@prisma/**',
+                '@/generated/prisma',
+                '@/generated/prisma/**',
+              ],
+              message:
+                'Domain layer must not import Prisma. Use mappers at the infrastructure boundary.',
+            },
+            {
+              group: ['typeorm', 'typeorm/**'],
+              message:
+                'TypeORM is removed from this project. If you see this, you imported a stale dep.',
+            },
+            {
+              group: ['class-validator', 'class-transformer'],
+              message:
+                'Domain layer must not use HTTP validation decorators. Keep entities pure; validate at presentation boundary.',
+            },
+            {
+              group: ['@/infrastructure/*', '@/infrastructure/**'],
+              message:
+                'Domain layer must not import from infrastructure. Dependency arrow points inward (infra → domain).',
+            },
+            {
+              group: ['@/presentation/*', '@/presentation/**'],
+              message:
+                'Domain layer must not import from presentation.',
+            },
+            {
+              group: ['@/application/*', '@/application/**'],
+              message:
+                'Domain layer must not import from application. Application depends on domain, not the reverse.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Application layer isolation: must NOT import Prisma directly or frameworks beyond NestJS
+  // Exception: *.module.ts files are the composition root and may wire infra/presentation
+  {
+    files: ['src/application/**/*.ts'],
+    ignores: [
+      'src/application/**/*.spec.ts',
+      'src/application/**/*.module.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@prisma/*',
+                '@prisma/**',
+                '@/generated/prisma',
+                '@/generated/prisma/**',
+              ],
+              message:
+                'Application layer must not import Prisma. Depend on ports; Prisma lives in infrastructure.',
+            },
+            {
+              group: ['typeorm', 'typeorm/**'],
+              message: 'TypeORM is removed from this project.',
+            },
+            {
+              group: ['@/infrastructure/*', '@/infrastructure/**'],
+              message:
+                'Application layer must not import from infrastructure. Depend on ports instead.',
+            },
+            {
+              group: ['@/presentation/*', '@/presentation/**'],
+              message:
+                'Application layer must not import from presentation.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     ignores: [
       'eslint.config.mjs',

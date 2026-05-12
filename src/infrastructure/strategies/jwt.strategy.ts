@@ -3,7 +3,7 @@ import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { OrNeverType } from '@/utils/types/or-never.type';
-import { JwtPayloadType } from '../config/jwt-payload.type';
+import { JwtPayloadType } from '@/application/identity/types/jwt-payload.type';
 import { AllConfigType } from '@/config/config.type';
 import type { UserRepositoryPort } from '@/application/identity/ports/user/user.repository.port';
 import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.repository.port.token';

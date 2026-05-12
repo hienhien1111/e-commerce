@@ -1,5 +1,5 @@
 import { ICommand } from '@nestjs/cqrs';
-import { AuthEmailLoginDto } from '@/presentation/http/dtos/auth-email-login.dto';
+import { EmailLoginPayload } from '@/application/identity/types/command-payloads';
 import {
   EmailPasswordLoginInput,
   WebAuthnLoginInput,
@@ -7,7 +7,7 @@ import {
 
 // Union type for all possible login payloads
 export type LoginPayload =
-  | AuthEmailLoginDto
+  | EmailLoginPayload
   | EmailPasswordLoginInput
   | WebAuthnLoginInput;
 

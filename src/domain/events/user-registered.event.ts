@@ -1,6 +1,5 @@
-import { IEvent } from '@nestjs/cqrs';
 import { User } from '@/domain/entities/user';
 
-export class UserRegisteredEvent implements IEvent {
+export class UserRegisteredEvent {
   constructor(public readonly user: User) {}
 }

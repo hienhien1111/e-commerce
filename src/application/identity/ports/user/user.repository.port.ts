@@ -7,9 +7,9 @@ import {
   CreateUserWithRoleIdInput,
 } from '@/domain/factories/user.factory';
 import {
-  FilterUserDto,
-  SortUserDto,
-} from '@/presentation/http/dtos/query-user.dto';
+  UserFilterCriteria,
+  UserSortCriteria,
+} from '@/application/identity/types/user-query.types';
 
 type FindBySocialIdAndProviderInput = Required<
   Pick<User, 'socialId' | 'provider'>
@@ -21,8 +21,8 @@ export interface UserRepositoryPort {
   ): Promise<User>;
 
   findManyWithPagination(params: {
-    filterOptions?: FilterUserDto | null;
-    sortOptions?: SortUserDto[] | null;
+    filterOptions?: UserFilterCriteria | null;
+    sortOptions?: UserSortCriteria[] | null;
     paginationOptions: IPaginationOptions;
   }): Promise<User[]>;
 

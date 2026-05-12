@@ -12,9 +12,9 @@ import { UserMapper } from '../mappers/user.mapper';
 import { NullableType } from '@/utils/types/nullable.type';
 import { IPaginationOptions } from '@/utils/types/pagination-options';
 import {
-  FilterUserDto,
-  SortUserDto,
-} from '@/presentation/http/dtos/query-user.dto';
+  UserFilterCriteria,
+  UserSortCriteria,
+} from '@/application/identity/types/user-query.types';
 import { DeepPartial } from '@/utils/types/deep-partial.type';
 
 const USER_WITH_ROLES_INCLUDE = {
@@ -82,8 +82,8 @@ export class PrismaUserRepository implements UserRepositoryPort {
     sortOptions,
     paginationOptions,
   }: {
-    filterOptions?: FilterUserDto | null;
-    sortOptions?: SortUserDto[] | null;
+    filterOptions?: UserFilterCriteria | null;
+    sortOptions?: UserSortCriteria[] | null;
     paginationOptions: IPaginationOptions;
   }): Promise<User[]> {
     const where: Prisma.UserWhereInput = {};

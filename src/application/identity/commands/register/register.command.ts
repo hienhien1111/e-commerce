@@ -1,6 +1,6 @@
 import { ICommand } from '@nestjs/cqrs';
-import { AuthRegisterLoginDto } from '@/presentation/http/dtos/auth-register-login.dto';
+import { RegisterPayload } from '@/application/identity/types/command-payloads';
 
 export class RegisterCommand implements ICommand {
-  constructor(public readonly payload: AuthRegisterLoginDto) {}
+  constructor(public readonly payload: RegisterPayload) {}
 }
