@@ -68,7 +68,8 @@
     "rxjs": "7.8.2",
     "uuid": "^13.0.0",
     "uuidv7": "^1.0.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@commitlint/cli": "19.8.1",

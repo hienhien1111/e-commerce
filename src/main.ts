@@ -11,10 +11,12 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import validationOptions from './utils/validation-options';
 import { AllConfigType } from './config/config.type';
+import { validateEnv } from './config/env.schema';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
 import { SerializeToJSONInterceptor } from './utils/serialize-to-json.interceptor';
 
 async function bootstrap() {
+  validateEnv();
   const app = await NestFactory.create(AppModule, { cors: false });
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const configService = app.get(ConfigService<AllConfigType>);
