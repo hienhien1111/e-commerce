@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { useContainer } from 'class-validator';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import validationOptions from './utils/validation-options';
 import { AllConfigType } from './config/config.type';
@@ -14,9 +15,19 @@ import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
 import { SerializeToJSONInterceptor } from './utils/serialize-to-json.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, { cors: false });
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const configService = app.get(ConfigService<AllConfigType>);
+
+  const corsOrigins = configService.getOrThrow('app.corsOrigins', {
+    infer: true,
+  });
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: true,
+  });
+
+  app.use(helmet());
 
   app.enableShutdownHooks();
   app.setGlobalPrefix(

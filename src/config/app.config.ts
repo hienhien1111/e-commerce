@@ -41,6 +41,15 @@ class EnvironmentVariablesValidator {
   API_PREFIX: string;
 }
 
+const parseCorsOrigins = (raw: string | undefined): string[] | true => {
+  if (!raw || raw.trim() === '') return true;
+  if (raw.trim() === '*') return true;
+  return raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
+};
+
 export default registerAs<AppConfig>('app', () => {
   validateConfig(process.env, EnvironmentVariablesValidator);
 
@@ -56,5 +65,12 @@ export default registerAs<AppConfig>('app', () => {
         ? parseInt(process.env.PORT, 10)
         : 3000,
     apiPrefix: process.env.API_PREFIX || 'api',
+    corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
+    throttleTtlMs: process.env.THROTTLE_TTL_MS
+      ? parseInt(process.env.THROTTLE_TTL_MS, 10)
+      : 60_000,
+    throttleLimit: process.env.THROTTLE_LIMIT
+      ? parseInt(process.env.THROTTLE_LIMIT, 10)
+      : 100,
   };
 });

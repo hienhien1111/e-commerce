@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule, seconds } from '@nestjs/throttler';
 
 import authConfig from './infrastructure/config/auth.config';
 import webauthnConfig from './infrastructure/config/webauthn.config';
 import appConfig from './config/app.config';
+import type { AllConfigType } from './config/config.type';
 
 import { PrismaModule } from './infrastructure/persistence/prisma/prisma.module';
 import { HealthModule } from './health/health.module';
@@ -17,10 +20,31 @@ import { AuthorizationModule } from './application/authorization/authorization.m
       load: [authConfig, webauthnConfig, appConfig],
       envFilePath: ['.env'],
     }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<AllConfigType>) => ({
+        throttlers: [
+          {
+            ttl:
+              configService.getOrThrow('app.throttleTtlMs', { infer: true }) ??
+              seconds(60),
+            limit: configService.getOrThrow('app.throttleLimit', {
+              infer: true,
+            }),
+          },
+        ],
+      }),
+    }),
     PrismaModule,
     HealthModule,
     IdentityModule,
     AuthorizationModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
