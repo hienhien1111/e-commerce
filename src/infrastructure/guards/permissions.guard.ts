@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { CaslAbilityFactory } from '../casl/casl-ability.factory';
+import { CaslAbilityFactory, AppSubjects } from '../casl/casl-ability.factory';
 import { CHECK_PERMISSIONS_KEY } from '../decorators/check-permissions.decorator';
 import { User } from '@/domain/entities/user';
 import { PermissionActionEnum } from '@/domain/enums/permission-action.enum';
@@ -44,7 +44,10 @@ export class PermissionsGuard implements CanActivate {
 
     // Check if user has all required permissions
     const hasPermission = requiredPermissions.every((permission) =>
-      ability.can(permission.action, permission.subject),
+      ability.can(
+        permission.action,
+        permission.subject as Extract<AppSubjects, string>,
+      ),
     );
 
     if (!hasPermission) {
