@@ -1,3 +1,7 @@
+// IMPORTANT: tracing must be the very first import — OTel instruments
+// libraries at require time, so it has to run before NestJS pulls them in.
+import './tracing';
+
 import {
   ClassSerializerInterceptor,
   ValidationPipe,

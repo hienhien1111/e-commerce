@@ -71,6 +71,12 @@ export const envSchema = z.object({
   // i18n
   APP_FALLBACK_LANGUAGE: z.string().default('en'),
   APP_HEADER_LANGUAGE: z.string().default('x-custom-lang'),
+
+  // OpenTelemetry (all optional — SDK no-ops unless OTEL_EXPORTER_OTLP_ENDPOINT
+  // or OTEL_ENABLED=true is set)
+  OTEL_ENABLED: z.enum(['true', 'false']).optional(),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+  OTEL_SERVICE_NAME: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
