@@ -1,5 +1,97 @@
 # Changelog
 
+## v2.2.0-phase5-complete — 2026-05-13
+
+Production hardening across security, observability, architecture isolation,
+and quality gates. All additions are non-breaking; deferred items kept.
+
+### Added
+
+#### Security (5A)
+- `helmet@8.1.0` for HTTP security headers (CSP, X-Frame-Options, HSTS, etc.)
+- `@nestjs/throttler@6.5.0` as global guard (default 100 req/60s/IP, env-tunable)
+- Explicit CORS origin whitelist via `CORS_ORIGINS` env (comma-separated; `*` or empty allows all in dev)
+- Extended `AppConfig` with `corsOrigins`, `throttleTtlMs`, `throttleLimit`
+
+#### Env validation (5B)
+- `zod@4.4.3` schema (`src/config/env.schema.ts`) validates `process.env` at boot
+- Single source of truth for all required + optional env vars (coerced + typed)
+- Fails fast with formatted error listing every missing/invalid field
+
+#### Layer isolation (5C)
+- ESLint `no-restricted-imports` rules:
+  - `src/domain/**` blocks `@nestjs/*`, `@prisma/*`, `typeorm`, `class-validator`, `@/infrastructure/*`, `@/application/*`, `@/presentation/*`
+  - `src/application/**` blocks `@prisma/*`, `@/infrastructure/*`, `@/presentation/*` (except `*.module.ts` composition root)
+- Refactored 11 architectural violations the rule surfaced:
+  - Removed unused domain exceptions extending NestJS HttpException
+  - Removed `implements IEvent` from 3 domain events (marker only)
+  - Moved `jwt-payload.type` from infra → application
+  - Created `src/application/identity/types/{command-payloads,user-query.types,jwt-payload.type}.ts` (plain TS interfaces)
+  - 4 command classes + UserRepositoryPort + GetUsersQuery now reference these instead of presentation DTOs
+
+#### Observability (5D / 5F / 5G)
+- `nestjs-pino@4.6.1` + `pino@10.3.1` for structured logging
+  - JSON in prod, pino-pretty single-line in dev (colorized)
+  - `x-request-id` header → log correlation (UUID fallback)
+  - Redacts auth headers, cookies, password/token body fields
+  - Custom log level by status code (5xx→error, 4xx→warn, else info)
+- `@opentelemetry/sdk-node@0.217` + auto-instrumentations (HTTP, Prisma, Pino, pg, etc.)
+  - `src/tracing.ts` initialized as first import in main.ts (require-time patching)
+  - OTLP HTTP exporter when `OTEL_EXPORTER_OTLP_ENDPOINT` set; NOOP otherwise
+  - Pino logs auto-receive `trace_id` / `span_id` for trace↔log correlation
+  - Resource attributes: service.name, service.version, deployment.environment
+  - Graceful shutdown on SIGTERM/SIGINT (flush spans)
+- `@willsoto/nestjs-prometheus@6.1.0` + `prom-client@15.1.3` for metrics
+  - `/metrics` endpoint in Prometheus exposition format
+  - Default Node.js process metrics (heap, CPU, event loop, GC, FDs)
+  - Seeded custom providers: `http_request_duration_seconds` histogram, `auth_login_attempts_total` counter
+
+#### Coverage (5E)
+- Jest `coverageThreshold.global` floor: branches 5, functions 5, lines 10, statements 10
+- `collectCoverageFrom` excludes generated client, DTOs, modules, ports, events
+- Conservative floor matches current 16% baseline; aspirational target 70% global, 90% domain (ratchet up over time)
+
+#### Scalability (5H)
+- `ioredis@5.10.1` + `RedisChallengeStore` implementing `ChallengeStorePort`
+- Opt-in via `REDIS_URL` env; falls back to `InMemoryChallengeStore` when unset
+- Required for multi-instance deployments (in-memory store cannot share challenges across pods)
+- Redis TTL handles challenge expiry automatically
+
+#### Health (5I)
+- Replaced broken `TypeOrmHealthIndicator` (Phase 3 left it orphaned) with custom `PrismaHealthIndicator`
+- Added opt-in `RedisHealthIndicator` (reports healthy & `configured: false` when REDIS_URL unset)
+- Three endpoints split for k8s probes:
+  - `GET /health` — full check (db + redis + dev api-docs ping)
+  - `GET /health/live` — liveness only (no deps; for k8s livenessProbe)
+  - `GET /health/ready` — readiness (db + redis; for k8s readinessProbe)
+
+### Changed
+
+- `main.ts`: `import './tracing'` is now the first line (OTel needs require-time patching)
+- `app.useLogger(app.get(Logger))` replaces default NestJS console logger
+- `cors: true` → `cors: false` + explicit `app.enableCors({ origin: whitelist })`
+- `AppModule.providers`: added global `ThrottlerGuard` as `APP_GUARD`
+- `AppModule.imports`: registered `LoggerModule`, `MetricsModule`, `PrismaModule` (already there)
+
+### Deferred (Phase 5+ roadmap)
+
+- AggregateRoot base class + Value Objects refactor (Email, Password, UserId)
+- `@casl/prisma` migration (SQL-level filtering via `accessibleBy`)
+- Transactional Outbox for domain events
+- Rewrite Hygen module templates for Prisma
+- Phase 3F migration baseline (requires Postgres running)
+
+### Verification (all green)
+
+- `bunx tsc --noEmit`: 0 errors
+- `bun run lint`: 0 errors (new layer rules enforced)
+- `bun run build`: success
+- `bun run test`: 12 suites / 49 tests
+- `bun run test:cov`: 16.6% statements > floor 10%
+- `bunx prisma format && bunx prisma generate`: success
+
+---
+
 ## v2.0.0-phase1-cleanup — 2026-05-12
 
 **BREAKING CHANGES.** Boilerplate cleanup + ORM migration from TypeORM to Prisma 7.
