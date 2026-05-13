@@ -67,12 +67,6 @@ Ports live in `application/*/ports/`; concrete adapters in `infrastructure/`. DI
 
 Extend by adding new bounded context under `src/application/<context>/`.
 
-## Generate a New Module
-
-```bash
-bun run generate:module    # Hygen scaffolds new bounded context (see .hygen/module/new/)
-```
-
 ## Hooks
 
 - Husky `pre-commit`: ESLint + Prettier on staged files
