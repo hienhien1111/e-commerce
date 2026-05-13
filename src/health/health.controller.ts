@@ -9,8 +9,9 @@ import {
   HealthCheckResult,
   HealthCheckService,
   HttpHealthIndicator,
-  TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
+import { PrismaHealthIndicator } from './prisma.health';
+import { RedisHealthIndicator } from './redis.health';
 
 @ApiTags('Health')
 @Controller('health')
@@ -19,16 +20,18 @@ export class HealthController {
     private configService: ConfigService<AllConfigType>,
     private health: HealthCheckService,
     private http: HttpHealthIndicator,
-    private db: TypeOrmHealthIndicator,
+    private prismaHealth: PrismaHealthIndicator,
+    private redisHealth: RedisHealthIndicator,
   ) {}
 
   @Public()
-  @ApiOperation({ summary: 'Health check' })
+  @ApiOperation({ summary: 'Liveness + readiness check' })
   @Get()
   @HealthCheck()
   async check(): Promise<HealthCheckResult> {
     const list = [
-      () => this.db.pingCheck('database'),
+      () => this.prismaHealth.pingCheck('database'),
+      () => this.redisHealth.pingCheck('redis'),
       ...(this.configService.get('app.nodeEnv', { infer: true }) ===
       Environment.DEVELOPMENT
         ? [
@@ -41,5 +44,24 @@ export class HealthController {
         : []),
     ];
     return this.health.check(list);
+  }
+
+  @Public()
+  @ApiOperation({ summary: 'Liveness only (no external dependencies)' })
+  @Get('live')
+  @HealthCheck()
+  async live(): Promise<HealthCheckResult> {
+    return this.health.check([]);
+  }
+
+  @Public()
+  @ApiOperation({ summary: 'Readiness (all dependencies)' })
+  @Get('ready')
+  @HealthCheck()
+  async ready(): Promise<HealthCheckResult> {
+    return this.health.check([
+      () => this.prismaHealth.pingCheck('database'),
+      () => this.redisHealth.pingCheck('redis'),
+    ]);
   }
 }
