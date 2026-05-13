@@ -9,6 +9,7 @@ import appConfig from './config/app.config';
 import type { AllConfigType } from './config/config.type';
 
 import { LoggerModule } from './infrastructure/logger/logger.module';
+import { MetricsModule } from './infrastructure/metrics/metrics.module';
 import { PrismaModule } from './infrastructure/persistence/prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { IdentityModule } from './application/identity/identity.module';
@@ -37,6 +38,7 @@ import { AuthorizationModule } from './application/authorization/authorization.m
       }),
     }),
     LoggerModule,
+    MetricsModule,
     PrismaModule,
     HealthModule,
     IdentityModule,
