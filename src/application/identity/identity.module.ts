@@ -19,6 +19,7 @@ import { AnonymousStrategy } from '@/infrastructure/strategies/anonymous.strateg
 import { PasswordHasherModule } from '@/infrastructure/providers/password-hasher.module';
 import { JwtTokenProvider } from '@/infrastructure/providers/jwt-token-provider';
 import { InMemoryChallengeStore } from '@/infrastructure/providers/in-memory-challenge-store';
+import { RedisChallengeStore } from '@/infrastructure/providers/redis-challenge-store';
 
 import { PrismaUserRepository } from '@/infrastructure/persistence/repositories/prisma-user.repository';
 import { PrismaSessionRepository } from '@/infrastructure/persistence/repositories/prisma-session.repository';
@@ -117,7 +118,6 @@ const EventHandlers = [
     WebAuthnLoginStrategy,
 
     JwtTokenProvider,
-    InMemoryChallengeStore,
 
     PrismaUserRepository,
     PrismaSessionRepository,
@@ -145,7 +145,10 @@ const EventHandlers = [
     },
     {
       provide: CHALLENGE_STORE_PORT,
-      useExisting: InMemoryChallengeStore,
+      useFactory: () =>
+        process.env.REDIS_URL
+          ? new RedisChallengeStore()
+          : new InMemoryChallengeStore(),
     },
   ],
   exports: [

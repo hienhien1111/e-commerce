@@ -77,6 +77,17 @@ export const envSchema = z.object({
   OTEL_ENABLED: z.enum(['true', 'false']).optional(),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
   OTEL_SERVICE_NAME: z.string().optional(),
+
+  // Redis (optional). If set, WebAuthn challenge store uses Redis instead of
+  // in-memory (required for multi-instance deployments).
+  REDIS_URL: z
+    .string()
+    .url()
+    .refine(
+      (url) => url.startsWith('redis://') || url.startsWith('rediss://'),
+      'REDIS_URL must start with redis:// or rediss://',
+    )
+    .optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
