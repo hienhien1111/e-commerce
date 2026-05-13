@@ -17,7 +17,7 @@ export class CreateUserWithRoleIdStrategy
         socialId: input.socialId,
         firstName: input.firstName,
         lastName: input.lastName,
-        role: undefined,
+        role: null,
         roleId: input.roleId,
       },
       generateUuidV7(),

@@ -5,7 +5,7 @@ export type CreateSessionInput = SessionEssentialProps;
 
 export type ReconstituteSessionInput = SessionEssentialProps &
   Required<Pick<Session, 'id' | 'createdAt' | 'updatedAt'>> & {
-    deletedAt?: Date;
+    deletedAt: Date | null;
   };
 
 export class SessionFactory {

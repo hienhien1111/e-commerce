@@ -14,7 +14,7 @@ export class CreateBasicPermissionStrategy
         name: input.name,
         action: input.action,
         subject: input.subject,
-        conditions: input.conditions ?? null,
+        conditions: input.conditions,
       },
       generateUuidV7(),
     );

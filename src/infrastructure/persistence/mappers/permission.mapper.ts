@@ -14,17 +14,31 @@ type PrismaPermissionLike = Omit<PrismaPermission, 'conditions'> & {
   conditions: unknown;
 };
 
+function toEnumValue<E extends Record<string, string>>(
+  raw: string,
+  enumObj: E,
+  field: string,
+): E[keyof E] {
+  const values = Object.values(enumObj) as string[];
+  if (!values.includes(raw)) {
+    throw new Error(
+      `Invalid permission ${field} from DB: "${raw}" not in [${values.join(', ')}]`,
+    );
+  }
+  return raw as E[keyof E];
+}
+
 export class PermissionMapper {
   static toDomain(raw: PrismaPermissionLike): Permission {
     return PermissionFactory.reconstitute({
       id: raw.id,
       name: raw.name,
-      action: raw.action as PermissionActionEnum,
-      subject: raw.subject as PermissionSubjectEnum,
-      conditions: (raw.conditions ?? null) as CaslConditions,
+      action: toEnumValue(raw.action, PermissionActionEnum, 'action'),
+      subject: toEnumValue(raw.subject, PermissionSubjectEnum, 'subject'),
+      conditions: (raw.conditions ?? null) as CaslConditions | null,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
-      deletedAt: raw.deletedAt ?? undefined,
+      deletedAt: raw.deletedAt,
     });
   }
 
@@ -48,10 +62,10 @@ export class PermissionMapper {
       name: domainEntity.name,
       action: domainEntity.action,
       subject: domainEntity.subject,
-      conditions: domainEntity.conditions ?? null,
+      conditions: domainEntity.conditions,
       createdAt: domainEntity.createdAt,
       updatedAt: domainEntity.updatedAt,
-      deletedAt: domainEntity.deletedAt ?? null,
+      deletedAt: domainEntity.deletedAt,
     };
   }
 }

@@ -110,7 +110,7 @@ describe('CreateUserHandler', () => {
       expect(passwordHasher.hash).not.toHaveBeenCalled();
       expect(userRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          password: undefined,
+          password: null,
         }),
       );
     });

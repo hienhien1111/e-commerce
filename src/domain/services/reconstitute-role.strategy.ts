@@ -11,7 +11,7 @@ export class ReconstituteRoleStrategy
     return Role._create(
       {
         name: input.name,
-        permissions: input.permissions ?? null,
+        permissions: input.permissions,
       },
       input.id,
       input.createdAt,

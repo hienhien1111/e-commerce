@@ -1,6 +1,6 @@
 import { IQuery } from '@nestjs/cqrs';
-import { JwtPayloadType } from '@/application/identity/types/jwt-payload.type';
+import { User } from '@/domain/entities/user';
 
 export class GetMeQuery implements IQuery {
-  constructor(public readonly userJwtPayload: JwtPayloadType) {}
+  constructor(public readonly userId: User['id']) {}
 }

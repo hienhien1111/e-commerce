@@ -6,7 +6,7 @@ export interface RoleEssentialProps {
 }
 
 type RoleInternalProps = RoleEssentialProps & {
-  permissions?: Permission[] | null;
+  permissions: Permission[] | null;
 };
 
 export class Role extends BaseDomainModel<RoleInternalProps> {
@@ -66,7 +66,9 @@ export class Role extends BaseDomainModel<RoleInternalProps> {
     return {
       ...super.toJSON(),
       name: this.name,
-      permissions: this.permissions?.map((p) => p.toJSON()) ?? null,
+      permissions: this.permissions
+        ? this.permissions.map((p) => p.toJSON())
+        : null,
     };
   }
 }

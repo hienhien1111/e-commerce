@@ -23,7 +23,7 @@ export class CreateUserHandler implements ICommandHandler<CreateUserCommand> {
 
   async execute(command: CreateUserCommand): Promise<CreateUserResult> {
     const { payload } = command;
-    let password: string | undefined = undefined;
+    let password: string | null = null;
 
     if (payload.password) {
       password = await this.passwordHasher.hash(payload.password);

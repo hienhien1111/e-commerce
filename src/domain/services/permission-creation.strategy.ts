@@ -8,5 +8,5 @@ export type CreatePermissionInput = PermissionEssentialProps;
 
 export type ReconstitutePermissionInput = PermissionEssentialProps &
   Required<Pick<Permission, 'id' | 'createdAt' | 'updatedAt'>> & {
-    deletedAt?: Date;
+    deletedAt: Date | null;
   };

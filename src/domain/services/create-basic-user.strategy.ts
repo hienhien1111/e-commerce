@@ -9,12 +9,10 @@ export class CreateBasicUserStrategy
   implements UserCreationStrategy<CreateUserInput>
 {
   execute(input: CreateUserInput): User {
-    const role = input.role ?? null;
     return User._create(
       {
         ...input,
-        role: role,
-        roleId: role?.id ?? null,
+        roleId: input.role ? input.role.id : null,
       },
       generateUuidV7(),
     );

@@ -31,16 +31,16 @@ export class UserMapper {
     return UserFactory.reconstitute({
       id: raw.id,
       email: raw.email,
-      password: raw.password ?? undefined,
+      password: raw.password,
       provider: raw.provider || AuthProvidersEnum.EMAIL,
-      socialId: raw.socialId ?? null,
-      firstName: raw.firstName ?? null,
-      lastName: raw.lastName ?? null,
+      socialId: raw.socialId,
+      firstName: raw.firstName,
+      lastName: raw.lastName,
       role: firstRole ? RoleMapper.toDomain(firstRole) : null,
       roleId: firstRole ? firstRole.id : null,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
-      deletedAt: raw.deletedAt ?? undefined,
+      deletedAt: raw.deletedAt,
     });
   }
 
@@ -63,15 +63,15 @@ export class UserMapper {
   } {
     return {
       id: domainEntity.id,
-      email: domainEntity.email ?? null,
-      password: domainEntity.password ?? null,
+      email: domainEntity.email,
+      password: domainEntity.password,
       provider: String(domainEntity.provider),
-      socialId: domainEntity.socialId ?? null,
-      firstName: domainEntity.firstName ?? null,
-      lastName: domainEntity.lastName ?? null,
+      socialId: domainEntity.socialId,
+      firstName: domainEntity.firstName,
+      lastName: domainEntity.lastName,
       createdAt: domainEntity.createdAt,
       updatedAt: domainEntity.updatedAt,
-      deletedAt: domainEntity.deletedAt ?? null,
+      deletedAt: domainEntity.deletedAt,
     };
   }
 }

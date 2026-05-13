@@ -17,7 +17,7 @@ export class ReconstituteUserStrategy
         firstName: input.firstName,
         lastName: input.lastName,
         role: input.role,
-        roleId: input.roleId ?? input.role?.id ?? null,
+        roleId: input.roleId ?? (input.role ? input.role.id : null),
       },
       input.id,
       input.createdAt,

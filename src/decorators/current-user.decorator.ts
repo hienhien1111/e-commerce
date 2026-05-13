@@ -1,8 +1,14 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { AuthenticatedUser } from '@/infrastructure/strategies/jwt.strategy';
 
+/**
+ * Reads `request.user` populated by a Passport strategy. The generic type
+ * parameter lets the caller name the exact shape produced by the guard in
+ * scope — e.g. `AuthenticatedUser` for `AuthGuard('jwt')`,
+ * `JwtRefreshPayloadType` for `AuthGuard('jwt-refresh')`.
+ */
 export const CurrentUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user;
+  <T = AuthenticatedUser>(_: unknown, ctx: ExecutionContext): T => {
+    return ctx.switchToHttp().getRequest<{ user: T }>().user;
   },
 );

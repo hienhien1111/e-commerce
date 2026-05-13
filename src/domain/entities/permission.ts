@@ -7,23 +7,23 @@ export interface PermissionEssentialProps {
   name: string;
   action: PermissionActionEnum;
   subject: PermissionSubjectEnum;
-  conditions?: CaslConditions;
+  conditions: CaslConditions | null;
 }
 
 type PermissionInternalProps = PermissionEssentialProps;
 
 export class Permission extends BaseDomainModel<PermissionInternalProps> {
-  private _deletedAt?: Date;
+  private _deletedAt: Date | null;
 
   private constructor(
     props: PermissionInternalProps,
     id: string,
     createdAt?: Date,
     updatedAt?: Date,
-    deletedAt?: Date,
+    deletedAt?: Date | null,
   ) {
     super(props, id, createdAt, updatedAt);
-    this._deletedAt = deletedAt;
+    this._deletedAt = deletedAt ?? null;
     this.validate();
   }
 
@@ -32,12 +32,12 @@ export class Permission extends BaseDomainModel<PermissionInternalProps> {
     id: string,
     createdAt?: Date,
     updatedAt?: Date,
-    deletedAt?: Date,
+    deletedAt?: Date | null,
   ): Permission {
     return new Permission(props, id, createdAt, updatedAt, deletedAt);
   }
 
-  get deletedAt(): Date | undefined {
+  get deletedAt(): Date | null {
     return this._deletedAt;
   }
 
@@ -97,8 +97,8 @@ export class Permission extends BaseDomainModel<PermissionInternalProps> {
       name: this.name,
       action: this.action,
       subject: this.subject,
-      conditions: this.conditions ?? null,
-      deletedAt: this.deletedAt ?? null,
+      conditions: this.conditions,
+      deletedAt: this.deletedAt,
     };
   }
 }

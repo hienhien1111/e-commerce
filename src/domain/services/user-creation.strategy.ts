@@ -6,7 +6,7 @@ export interface UserCreationStrategy<TInput> {
 }
 
 export type CreateUserInput = UserEssentialProps & {
-  role?: Role | null;
+  role: Role | null;
 };
 
 export type CreateUserWithRoleInput = UserEssentialProps & {
@@ -19,7 +19,7 @@ export type CreateUserWithRoleIdInput = UserEssentialProps & {
 
 export type ReconstituteUserInput = UserEssentialProps &
   Required<Pick<User, 'id' | 'createdAt' | 'updatedAt'>> & {
-    role?: Role | null;
-    roleId?: string | null;
-    deletedAt?: Date;
+    role: Role | null;
+    roleId: string | null;
+    deletedAt: Date | null;
   };

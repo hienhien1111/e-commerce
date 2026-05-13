@@ -20,14 +20,14 @@ class EnvironmentVariablesValidator {
 }
 
 export default registerAs<WebAuthnConfig>('webauthn', () => {
-  validateConfig(process.env, EnvironmentVariablesValidator);
+  const env = validateConfig(process.env, EnvironmentVariablesValidator);
 
   return {
-    rpId: process.env.WEBAUTHN_RP_ID!,
-    rpName: process.env.WEBAUTHN_RP_NAME!,
-    allowedOrigins: process.env
-      .WEBAUTHN_ALLOWED_ORIGINS!.split(',')
-      .map((origin) => origin.trim()),
-    challengeTtlSec: parseInt(process.env.WEBAUTHN_CHALLENGE_TTL_SEC!, 10),
+    rpId: env.WEBAUTHN_RP_ID,
+    rpName: env.WEBAUTHN_RP_NAME,
+    allowedOrigins: env.WEBAUTHN_ALLOWED_ORIGINS.split(',').map((origin) =>
+      origin.trim(),
+    ),
+    challengeTtlSec: env.WEBAUTHN_CHALLENGE_TTL_SEC,
   };
 });

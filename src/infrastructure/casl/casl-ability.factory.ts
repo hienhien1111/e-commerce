@@ -37,7 +37,7 @@ export class CaslAbilityFactory {
     const permissions: Permission[] = user.role?.permissions || [];
 
     permissions.forEach((permission) => {
-      const action = permission.action as Actions;
+      const action: Actions = permission.action;
       const subject = permission.subject as Extract<AppSubjects, string>;
 
       if (permission.conditions) {

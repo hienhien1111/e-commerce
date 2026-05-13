@@ -43,8 +43,6 @@ export class PrismaWebAuthnCredentialRepository
   async create(
     data: CreateWebAuthnCredentialInput,
   ): Promise<WebAuthnCredential> {
-    const transports = data.transports ?? null;
-
     const created = await this.prisma.webAuthnCredential.create({
       data: {
         id: generateUuidV7(),
@@ -53,12 +51,12 @@ export class PrismaWebAuthnCredentialRepository
         publicKey: data.publicKey,
         counter: BigInt(data.counter),
         transports:
-          transports === null
+          data.transports === null
             ? Prisma.JsonNull
-            : (transports as Prisma.InputJsonValue),
+            : (data.transports as Prisma.InputJsonValue),
         backedUp: data.backedUp,
-        deviceType: data.deviceType ?? null,
-        aaguid: data.aaguid ?? null,
+        deviceType: data.deviceType,
+        aaguid: data.aaguid,
         lastUsedAt: null,
       },
     });

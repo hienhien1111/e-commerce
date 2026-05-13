@@ -6,10 +6,10 @@ export interface RoleCreationStrategy<TInput> {
 }
 
 export type CreateRoleInput = RoleEssentialProps & {
-  permissions?: Permission[] | null;
+  permissions: Permission[] | null;
 };
 
 export type ReconstituteRoleInput = RoleEssentialProps &
   Required<Pick<Role, 'id' | 'createdAt' | 'updatedAt'>> & {
-    permissions?: Permission[] | null;
+    permissions: Permission[] | null;
   };

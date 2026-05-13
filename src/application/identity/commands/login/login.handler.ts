@@ -25,8 +25,7 @@ export class LoginHandler implements ICommandHandler<AuthLoginCommand> {
   async execute(command: AuthLoginCommand): Promise<LoginResult> {
     const { payload } = command;
 
-    const strategy = this.strategyResolver.resolve(payload);
-    const { user } = await strategy.execute(payload);
+    const { user } = await this.strategyResolver.execute(payload);
 
     const hash = crypto
       .createHash('sha256')

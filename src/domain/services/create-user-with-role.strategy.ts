@@ -18,7 +18,7 @@ export class CreateUserWithRoleStrategy
         firstName: input.firstName,
         lastName: input.lastName,
         role: input.role,
-        roleId: input.role?.id ?? null,
+        roleId: input.role ? input.role.id : null,
       },
       generateUuidV7(),
     );

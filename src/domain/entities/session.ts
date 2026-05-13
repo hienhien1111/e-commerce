@@ -9,17 +9,17 @@ export interface SessionEssentialProps {
 type SessionInternalProps = SessionEssentialProps;
 
 export class Session extends BaseDomainModel<SessionInternalProps> {
-  private _deletedAt?: Date;
+  private _deletedAt: Date | null;
 
   private constructor(
     props: SessionInternalProps,
     id: string,
     createdAt?: Date,
     updatedAt?: Date,
-    deletedAt?: Date,
+    deletedAt?: Date | null,
   ) {
     super(props, id, createdAt, updatedAt);
-    this._deletedAt = deletedAt;
+    this._deletedAt = deletedAt ?? null;
     this.validate();
   }
 
@@ -28,12 +28,12 @@ export class Session extends BaseDomainModel<SessionInternalProps> {
     id: string,
     createdAt?: Date,
     updatedAt?: Date,
-    deletedAt?: Date,
+    deletedAt?: Date | null,
   ): Session {
     return new Session(props, id, createdAt, updatedAt, deletedAt);
   }
 
-  get deletedAt(): Date | undefined {
+  get deletedAt(): Date | null {
     return this._deletedAt;
   }
 
@@ -64,7 +64,7 @@ export class Session extends BaseDomainModel<SessionInternalProps> {
       ...super.toJSON(),
       user: this.user.toJSON(),
       hash: this.hash,
-      deletedAt: this.deletedAt ?? null,
+      deletedAt: this.deletedAt,
     };
   }
 }

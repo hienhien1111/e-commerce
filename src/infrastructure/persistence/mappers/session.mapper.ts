@@ -25,7 +25,7 @@ export class SessionMapper {
       hash: raw.hash,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
-      deletedAt: raw.deletedAt ?? undefined,
+      deletedAt: raw.deletedAt,
     });
   }
 
@@ -47,7 +47,7 @@ export class SessionMapper {
       hash: domainEntity.hash,
       createdAt: domainEntity.createdAt,
       updatedAt: domainEntity.updatedAt,
-      deletedAt: domainEntity.deletedAt ?? null,
+      deletedAt: domainEntity.deletedAt,
     };
   }
 }

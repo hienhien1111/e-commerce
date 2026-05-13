@@ -13,7 +13,7 @@ export class ReconstitutePermissionStrategy
         name: input.name,
         action: input.action,
         subject: input.subject,
-        conditions: input.conditions ?? null,
+        conditions: input.conditions,
       },
       input.id,
       input.createdAt,

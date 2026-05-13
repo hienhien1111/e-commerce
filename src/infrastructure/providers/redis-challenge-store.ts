@@ -21,7 +21,11 @@ export class RedisChallengeStore
   private readonly redis: Redis;
 
   constructor() {
-    this.redis = new Redis(process.env.REDIS_URL as string, {
+    const url = process.env.REDIS_URL;
+    if (!url) {
+      throw new Error('REDIS_URL is required for RedisChallengeStore');
+    }
+    this.redis = new Redis(url, {
       maxRetriesPerRequest: 3,
       lazyConnect: false,
     });

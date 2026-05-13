@@ -4,33 +4,33 @@ import { AuthProvidersEnum } from '@/domain/enums/auth-providers.enum';
 
 export interface UserEssentialProps {
   email: string | null;
-  password?: string;
+  password: string | null;
   provider: AuthProvidersEnum | string;
-  socialId?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
+  socialId: string | null;
+  firstName: string | null;
+  lastName: string | null;
 }
 
 type UserRoleProps = {
-  role?: Role | null;
-  roleId?: string | null;
+  role: Role | null;
+  roleId: string | null;
 };
 
 type UserInternalProps = UserEssentialProps & UserRoleProps;
 
 export class User extends BaseDomainModel<UserInternalProps> {
-  private _deletedAt?: Date;
+  private _deletedAt: Date | null;
 
   private constructor(
     props: UserInternalProps,
     id: string,
     createdAt?: Date,
     updatedAt?: Date,
-    deletedAt?: Date,
+    deletedAt?: Date | null,
     shouldValidate = true,
   ) {
     super(props, id, createdAt, updatedAt);
-    this._deletedAt = deletedAt;
+    this._deletedAt = deletedAt ?? null;
     if (shouldValidate) {
       this.validate();
     }
@@ -41,7 +41,7 @@ export class User extends BaseDomainModel<UserInternalProps> {
     id: string,
     createdAt?: Date,
     updatedAt?: Date,
-    deletedAt?: Date,
+    deletedAt?: Date | null,
     shouldValidate = true,
   ): User {
     return new User(props, id, createdAt, updatedAt, deletedAt, shouldValidate);
@@ -89,7 +89,7 @@ export class User extends BaseDomainModel<UserInternalProps> {
     return this.props.roleId;
   }
 
-  get deletedAt(): Date | undefined {
+  get deletedAt(): Date | null {
     return this._deletedAt;
   }
 
@@ -138,11 +138,11 @@ export class User extends BaseDomainModel<UserInternalProps> {
       ...super.toJSON(),
       email: this.email,
       provider: this.provider,
-      socialId: this.socialId ?? null,
-      firstName: this.firstName ?? null,
-      lastName: this.lastName ?? null,
-      role: this.role?.toJSON() ?? null,
-      deletedAt: this.deletedAt ?? null,
+      socialId: this.socialId,
+      firstName: this.firstName,
+      lastName: this.lastName,
+      role: this.role ? this.role.toJSON() : null,
+      deletedAt: this.deletedAt,
     };
   }
 }

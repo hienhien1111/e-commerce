@@ -6,10 +6,10 @@ export interface CreateWebAuthnCredentialInput {
   credentialId: string;
   publicKey: string;
   counter: number;
-  transports?: string[] | null;
+  transports: string[] | null;
   backedUp: boolean;
-  deviceType?: string | null;
-  aaguid?: string | null;
+  deviceType: string | null;
+  aaguid: string | null;
 }
 
 export interface UpdateWebAuthnCredentialInput {

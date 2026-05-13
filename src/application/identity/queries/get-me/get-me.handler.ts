@@ -13,6 +13,6 @@ export class GetMeHandler implements IQueryHandler<GetMeQuery> {
   ) {}
 
   async execute(query: GetMeQuery): Promise<GetMeResult> {
-    return this.userRepository.findById(query.userJwtPayload.id);
+    return this.userRepository.findById(query.userId);
   }
 }

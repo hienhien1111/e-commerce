@@ -46,12 +46,8 @@ describe('LoginHandler', () => {
       publish: jest.fn(),
     } as unknown as jest.Mocked<EventBus>;
 
-    const mockStrategy = {
-      execute: jest.fn().mockResolvedValue({ user: mockUser }),
-    };
-
     strategyResolver = {
-      resolve: jest.fn().mockReturnValue(mockStrategy),
+      execute: jest.fn().mockResolvedValue({ user: mockUser }),
     } as unknown as jest.Mocked<LoginStrategyResolver>;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -88,12 +84,12 @@ describe('LoginHandler', () => {
       });
     });
 
-    it('should resolve login strategy', async () => {
+    it('should dispatch to login strategy', async () => {
       const command = new AuthLoginCommand(loginPayload);
 
       await handler.execute(command);
 
-      expect(strategyResolver.resolve).toHaveBeenCalledWith(loginPayload);
+      expect(strategyResolver.execute).toHaveBeenCalledWith(loginPayload);
     });
 
     it('should create a session for the user', async () => {

@@ -4,13 +4,15 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Request,
   Post,
   UseGuards,
   Patch,
   Delete,
   SerializeOptions,
 } from '@nestjs/common';
+import { CurrentUser } from '@/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '@/infrastructure/strategies/jwt.strategy';
+import type { JwtRefreshPayloadType } from '@/infrastructure/config/jwt-refresh-payload.type';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { RegisterCommand } from '@/application/identity/commands/register';
 import {
@@ -156,8 +158,10 @@ export class AuthController {
   })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @HttpCode(HttpStatus.OK)
-  public me(@Request() request): Promise<NullableType<User>> {
-    return this.queryBus.execute(new GetMeQuery(request.user));
+  public me(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<NullableType<User>> {
+    return this.queryBus.execute(new GetMeQuery(user.id));
   }
 
   @ApiBearerAuth()
@@ -173,9 +177,11 @@ export class AuthController {
   @Post('refresh')
   @UseGuards(AuthGuard('jwt-refresh'))
   @HttpCode(HttpStatus.OK)
-  public refresh(@Request() request): Promise<RefreshResponseDto> {
+  public refresh(
+    @CurrentUser() payload: JwtRefreshPayloadType,
+  ): Promise<RefreshResponseDto> {
     return this.commandBus.execute(
-      new RefreshTokenCommand(request.user.sessionId, request.user.hash),
+      new RefreshTokenCommand(payload.sessionId, payload.hash),
     );
   }
 
@@ -186,8 +192,8 @@ export class AuthController {
   @ApiNoContentResponse({ description: 'Logged out successfully' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  public async logout(@Request() request): Promise<void> {
-    await this.commandBus.execute(new LogoutCommand(request.user.sessionId));
+  public async logout(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+    await this.commandBus.execute(new LogoutCommand(user.sessionId));
   }
 
   @ApiBearerAuth()
@@ -206,12 +212,10 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiUnprocessableEntityResponse({ description: 'Email already exists' })
   public update(
-    @Request() request,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() userDto: AuthUpdateDto,
   ): Promise<NullableType<User>> {
-    return this.commandBus.execute(
-      new UpdateUserCommand(request.user.id, userDto),
-    );
+    return this.commandBus.execute(new UpdateUserCommand(user.id, userDto));
   }
 
   @ApiBearerAuth()
@@ -221,8 +225,8 @@ export class AuthController {
   @ApiNoContentResponse({ description: 'User deleted successfully' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  public async delete(@Request() request): Promise<void> {
-    return this.commandBus.execute(new DeleteUserCommand(request.user.id));
+  public async delete(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+    return this.commandBus.execute(new DeleteUserCommand(user.id));
   }
 
   @Post('webauthn/login')

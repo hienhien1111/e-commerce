@@ -53,7 +53,7 @@ export class RegisterHandler implements ICommandHandler<RegisterCommand> {
       }
     }
 
-    let password: string | undefined = undefined;
+    let password: string | null = null;
     if (payload.password) {
       password = await this.passwordHasher.hash(payload.password);
     }

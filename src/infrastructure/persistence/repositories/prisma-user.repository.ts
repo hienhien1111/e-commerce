@@ -49,7 +49,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
       : UserFactory.createWithRole(data);
 
     const persistence = UserMapper.toPersistence(domainEntity);
-    const roleId = domainEntity.roleId ?? null;
+    const roleId = domainEntity.roleId;
 
     const created = await this.prisma.user.create({
       data: {
@@ -200,7 +200,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
     if (payload.email !== undefined && payload.email !== null) {
       domainEntity.updateEmail(payload.email);
     }
-    if (payload.password !== undefined) {
+    if (payload.password !== undefined && payload.password !== null) {
       domainEntity.updatePassword(payload.password);
     }
     if (payload.firstName !== undefined || payload.lastName !== undefined) {
@@ -218,7 +218,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
     }
 
     const persistence = UserMapper.toPersistence(domainEntity);
-    const nextRoleId = domainEntity.roleId ?? null;
+    const nextRoleId = domainEntity.roleId;
     const roleChanged = payload.role !== undefined;
 
     const updated = await this.prisma.user.update({

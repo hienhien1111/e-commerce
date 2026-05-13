@@ -12,7 +12,7 @@ export class CreateBasicRoleStrategy
     return Role._create(
       {
         name: input.name,
-        permissions: input.permissions ?? null,
+        permissions: input.permissions,
       },
       generateUuidV7(),
     );

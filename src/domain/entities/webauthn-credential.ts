@@ -5,11 +5,11 @@ export interface WebAuthnCredentialEssentialProps {
   credentialId: string;
   publicKey: string;
   counter: number;
-  transports?: string[] | null;
+  transports: string[] | null;
   backedUp: boolean;
-  deviceType?: string | null;
-  aaguid?: string | null;
-  lastUsedAt?: Date | null;
+  deviceType: string | null;
+  aaguid: string | null;
+  lastUsedAt: Date | null;
 }
 
 type WebAuthnCredentialInternalProps = WebAuthnCredentialEssentialProps;
@@ -108,11 +108,11 @@ export class WebAuthnCredential extends BaseDomainModel<WebAuthnCredentialIntern
       credentialId: this.credentialId,
       publicKey: this.publicKey,
       counter: this.counter,
-      transports: this.transports ?? null,
+      transports: this.transports,
       backedUp: this.backedUp,
-      deviceType: this.deviceType ?? null,
-      aaguid: this.aaguid ?? null,
-      lastUsedAt: this.lastUsedAt ?? null,
+      deviceType: this.deviceType,
+      aaguid: this.aaguid,
+      lastUsedAt: this.lastUsedAt,
     };
   }
 }

@@ -46,10 +46,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException();
     }
 
-    // Attach sessionId from the JWT payload so handlers that need to
-    // mutate the session (logout, session revoke) can access it via
-    // request.user.sessionId without a second DB lookup.
-    (user as AuthenticatedUser).sessionId = payload.sessionId;
-    return user as AuthenticatedUser;
+    // Compose without mutating the loaded entity: preserve User's prototype
+    // (getters/methods) and graft sessionId on a fresh instance.
+    const authenticated: AuthenticatedUser = Object.assign(
+      Object.create(Object.getPrototypeOf(user)) as User,
+      user,
+      { sessionId: payload.sessionId },
+    );
+    return authenticated;
   }
 }

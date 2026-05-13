@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  LoginStrategy,
+  LoginResult,
   EmailPasswordLoginInput,
   WebAuthnLoginInput,
 } from '@/domain/strategies/auth/i-auth-strategy';
@@ -16,15 +16,13 @@ export class LoginStrategyResolver {
     private readonly webAuthnStrategy: WebAuthnLoginStrategy,
   ) {}
 
-  resolve(payload: LoginInput): LoginStrategy<LoginInput> {
+  execute(payload: LoginInput): Promise<LoginResult> {
     if (this.isWebAuthnInput(payload)) {
-      return this.webAuthnStrategy as LoginStrategy<LoginInput>;
+      return this.webAuthnStrategy.execute(payload);
     }
-
     if (this.isEmailPasswordInput(payload)) {
-      return this.emailPasswordStrategy as LoginStrategy<LoginInput>;
+      return this.emailPasswordStrategy.execute(payload);
     }
-
     throw new Error('Unknown login type');
   }
 

@@ -3,7 +3,6 @@ import { GetMeHandler } from './get-me.handler';
 import { GetMeQuery } from './get-me.query';
 import { USER_REPOSITORY_PORT } from '../../ports/user/user.repository.port.token';
 import { User } from '@/domain/entities/user';
-import type { JwtPayloadType } from '@/application/identity/types/jwt-payload.type';
 
 describe('GetMeHandler', () => {
   let handler: GetMeHandler;
@@ -17,15 +16,6 @@ describe('GetMeHandler', () => {
     firstName: 'John',
     lastName: 'Doe',
   } as User;
-
-  const createMockJwtPayload = (id: string): JwtPayloadType =>
-    ({
-      id,
-      sessionId: 'session-123',
-      role: null,
-      iat: Date.now(),
-      exp: Date.now() + 3600000,
-    }) as unknown as JwtPayloadType;
 
   beforeEach(async () => {
     userRepository = {
@@ -50,7 +40,7 @@ describe('GetMeHandler', () => {
     it('should return user by id from jwt payload', async () => {
       userRepository.findById.mockResolvedValue(mockUser);
 
-      const query = new GetMeQuery(createMockJwtPayload('user-123'));
+      const query = new GetMeQuery('user-123');
 
       const result = await handler.execute(query);
 
@@ -61,7 +51,7 @@ describe('GetMeHandler', () => {
     it('should return null if user not found', async () => {
       userRepository.findById.mockResolvedValue(null);
 
-      const query = new GetMeQuery(createMockJwtPayload('non-existent-user'));
+      const query = new GetMeQuery('non-existent-user');
 
       const result = await handler.execute(query);
 
