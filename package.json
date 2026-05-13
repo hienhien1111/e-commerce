@@ -1,7 +1,7 @@
 {
   "name": "nest-clean-arch-boilerplate",
-  "version": "1.2.0",
-  "description": "",
+  "version": "2.3.1",
+  "description": "Production-grade NestJS 11 + Prisma 7 boilerplate with Clean Architecture, DDD, CQRS, Hexagonal Ports & Adapters, WebAuthn passkeys, CASL, Pino + OpenTelemetry + Prometheus.",
   "author": "",
   "private": true,
   "license": "MIT",
