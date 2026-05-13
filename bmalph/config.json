@@ -1,0 +1,9 @@
+{
+  "name": "hrkit",
+  "description": "AI HR Platform - end-to-end hiring with JD writing, CV scoring, AI interviews, onboarding",
+  "createdAt": "2026-04-15T08:02:55.798Z",
+  "platform": "claude-code",
+  "upstreamVersions": {
+    "bmadCommit": "d1163f85"
+  }
+}

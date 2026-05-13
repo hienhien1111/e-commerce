@@ -1,0 +1,11 @@
+{
+    "version": "1.0.0",
+    "date": "January 2026",
+    "abstract": "Comprehensive performance optimization guide for the hrkit frontend stack: React 18, Next.js, TanStack Query, Supabase, and Tailwind. The rules are prioritized by impact and intentionally avoid guidance that depends on libraries or React APIs not present in this repo.",
+    "references": [
+        "https://react.dev",
+        "https://tanstack.com/query",
+        "https://reactrouter.com",
+        "https://github.com/isaacs/node-lru-cache"
+    ]
+}
