@@ -1,10 +1,13 @@
-import { IAggregateRoot } from './aggregate-root';
+import { AggregateRoot } from './aggregate-root';
 
-export abstract class BaseDomainModel<T> implements IAggregateRoot {
+/**
+ * BaseDomainModel — generic container for an aggregate's invariant props.
+ *
+ * Extends `AggregateRoot` so every domain entity inherits domain-event
+ * buffering plus id/createdAt/updatedAt management.
+ */
+export abstract class BaseDomainModel<T> extends AggregateRoot {
   protected props: T;
-  protected readonly _id: string;
-  protected readonly _createdAt: Date;
-  protected _updatedAt: Date;
 
   protected constructor(
     props: T,
@@ -12,26 +15,8 @@ export abstract class BaseDomainModel<T> implements IAggregateRoot {
     createdAt?: Date,
     updatedAt?: Date,
   ) {
+    super(id, createdAt, updatedAt);
     this.props = props;
-    this._id = id;
-    this._createdAt = createdAt || new Date();
-    this._updatedAt = updatedAt || new Date();
-  }
-
-  get id(): string {
-    return this._id;
-  }
-
-  get createdAt(): Date {
-    return this._createdAt;
-  }
-
-  get updatedAt(): Date {
-    return this._updatedAt;
-  }
-
-  protected touch(): void {
-    this._updatedAt = new Date();
   }
 
   toJSON(): Record<string, unknown> {
