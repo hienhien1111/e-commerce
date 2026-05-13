@@ -9,6 +9,13 @@ import type { UserRepositoryPort } from '@/application/identity/ports/user/user.
 import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.repository.port.token';
 import { User } from '@/domain/entities/user';
 
+/**
+ * Authenticated request user shape — the domain User plus the session id
+ * derived from the JWT payload. Controllers read `request.user.sessionId`
+ * for endpoints that need to mutate the session (e.g. logout).
+ */
+export type AuthenticatedUser = User & { sessionId: string };
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
@@ -26,8 +33,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  public async validate(payload: JwtPayloadType): Promise<OrNeverType<User>> {
-    if (!payload.id) {
+  public async validate(
+    payload: JwtPayloadType,
+  ): Promise<OrNeverType<AuthenticatedUser>> {
+    if (!payload.id || !payload.sessionId) {
       throw new UnauthorizedException();
     }
 
@@ -37,6 +46,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException();
     }
 
-    return user;
+    // Attach sessionId from the JWT payload so handlers that need to
+    // mutate the session (logout, session revoke) can access it via
+    // request.user.sessionId without a second DB lookup.
+    (user as AuthenticatedUser).sessionId = payload.sessionId;
+    return user as AuthenticatedUser;
   }
 }

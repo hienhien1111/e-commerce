@@ -45,3 +45,6 @@ lerna-debug.log*
 
 # Prisma local artifacts
 /prisma/.cache/
+
+# Local secrets (RSA keys for dev/testing)
+/.secrets/

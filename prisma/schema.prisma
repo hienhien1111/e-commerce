@@ -53,7 +53,7 @@ model User {
 
 model Role {
   id        String    @id @db.Uuid
-  name      String?
+  name      String    @unique
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
