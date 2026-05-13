@@ -1,5 +1,58 @@
 # Changelog
 
+## v2.3.0-phase5-extended — 2026-05-13
+
+DDD purity, type-safe authorization, and module scaffolding. All non-breaking.
+
+### Added
+
+#### DDD foundations (5J)
+- `src/shared/domain/aggregate-root.ts`: promoted from marker interface to
+  abstract `AggregateRoot` class with in-memory domain event buffer
+  - `addDomainEvent(event)` (protected), `pullDomainEvents()`, `peekDomainEvents()`,
+    `clearDomainEvents()`, `touch()`
+- `src/shared/domain/domain-event.ts`: `DomainEvent` interface +
+  `BaseDomainEvent` with auto-set `occurredAt`
+- `src/shared/domain/value-object.ts`: `ValueObject<TProps>` base with
+  immutability (`Object.freeze`) + structural equality
+- `src/domain/value-objects/email.ts`: `Email` VO (RFC regex + normalization +
+  RFC 5321 cap + accessors)
+- `src/domain/value-objects/unique-id.ts`: `UniqueId` base (subclass per
+  context for type-safe ID parameters)
+- Tests: 24 new assertions (`email.spec.ts` + `aggregate-root.spec.ts`)
+
+#### CASL Prisma (5K)
+- `@casl/prisma@1.6.2` replaces `createMongoAbility` with `createPrismaAbility`
+- Typed `AppSubjects` from Prisma `User | Role | Permission` models
+- `AppAbility = PrismaAbility<[Actions, AppSubjects]>` exported for guards
+- Persisted `permission.conditions` JSON now interpreted as Prisma
+  `WhereInput` syntax — unlocks future SQL-level filtering via
+  `accessibleBy(ability).ofType('User')`
+
+#### Module scaffolding (5M)
+- 14-template Hygen generator at `.hygen/module/new/` (TypeORM templates were
+  deleted in Phase 1B; this restores `bun run generate:module`)
+- Prompts: kebab-case context name + PascalCase aggregate name (validated)
+- Scaffolds: module file, port + Symbol token, domain entity (extends
+  `BaseDomainModel`), command + handler + barrel, query + handler + barrel,
+  Prisma repo skeleton with TODOs + inline schema snippet, REST controller
+  with DTO, per-context README with next-steps checklist
+
+### Verification
+
+- `bunx tsc --noEmit`: 0 errors
+- `bun run lint`: 0 errors
+- `bun run test`: 14 suites / 75 tests (was 12 / 49, +26 from Phase 5J)
+
+### Deferred
+
+- Phase 5L Transactional Outbox: foundation is ready (AggregateRoot can pull
+  events) but reliable cross-process dispatch requires an event-class
+  registry and is best implemented when the first integration event arises
+- Phase 3F migration baseline: requires Postgres running
+
+---
+
 ## v2.2.0-phase5-complete — 2026-05-13
 
 Production hardening across security, observability, architecture isolation,
