@@ -37,8 +37,26 @@ lerna-debug.log*
 .data
 /files
 .env
+.env.*
+!.env.example
+!.env.*.example
 /ormconfig.json
 .codegpt
+
+# Certificates and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Frontend dependencies and build artifacts
+/frontend/node_modules/
+/frontend/.next/
+/frontend/out/
+/frontend/.eslintcache
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
 
 # Prisma 7 generated client (regenerated via `bunx prisma generate`)
 /src/generated/
