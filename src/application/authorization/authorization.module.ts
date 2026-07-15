@@ -6,6 +6,7 @@ import { RoleController } from '@/presentation/http/controllers/role.controller'
 import { RolesGuard } from '@/infrastructure/guards/roles.guard';
 import { PermissionsGuard } from '@/infrastructure/guards/permissions.guard';
 import { CaslAbilityFactory } from '@/infrastructure/casl/casl-ability.factory';
+import { PrismaModule } from '@/infrastructure/persistence/prisma/prisma.module';
 
 import { PrismaRoleRepository } from '@/infrastructure/persistence/repositories/prisma-role.repository';
 import { PrismaPermissionRepository } from '@/infrastructure/persistence/repositories/prisma-permission.repository';
@@ -20,7 +21,7 @@ const QueryHandlers = [GetRoleHandler, GetRolesHandler];
 
 @Global()
 @Module({
-  imports: [CqrsModule],
+  imports: [CqrsModule, PrismaModule],
   controllers: [RoleController],
   providers: [
     RolesGuard,

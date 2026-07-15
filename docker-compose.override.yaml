@@ -1,0 +1,26 @@
+# Local dev overrides — hot-reload volumes for all services
+# Usage: docker compose up (automatically merged with docker-compose.yaml)
+
+services:
+  api:
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./src:/usr/src/app/src:rw
+      - ./prisma:/usr/src/app/prisma:rw
+      - ./test:/usr/src/app/test:rw
+      - ./package.json:/usr/src/app/package.json:ro
+      - ./bun.lock:/usr/src/app/bun.lock:ro
+      - ./tsconfig.json:/usr/src/app/tsconfig.json:ro
+      - ./tsconfig.build.json:/usr/src/app/tsconfig.build.json:ro
+      - ./nest-cli.json:/usr/src/app/nest-cli.json:ro
+      # Override with real prisma.config.ts (has DATABASE_URL) at runtime
+      - ./prisma.config.ts:/usr/src/app/prisma.config.ts:ro
+
+  frontend:
+    volumes:
+      - ./frontend/src:/app/src:rw
+      - ./frontend/public:/app/public:rw
+      - ./frontend/package.json:/app/package.json:ro
+      - ./frontend/next.config.js:/app/next.config.js:ro
+      - ./frontend/tsconfig.json:/app/tsconfig.json:ro

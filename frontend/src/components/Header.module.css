@@ -1,0 +1,44 @@
+.header {
+  min-height: var(--header-height);
+  background: var(--color-bg-white);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+.content {
+  min-height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.brand,
+.navigation {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: var(--space-2);
+  color: var(--color-primary);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.navigation {
+  gap: var(--space-4);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.registerLink {
+  color: var(--color-primary);
+}
+
+@media (max-width: 480px) {
+  .navigation {
+    gap: var(--space-3);
+    font-size: 13px;
+  }
+}

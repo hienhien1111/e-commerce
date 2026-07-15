@@ -1,17 +1,31 @@
 services:
   postgres-test:
-    image: postgres:16-alpine
-    container_name: teko-postgres-test
+    image: postgres:17.5-alpine
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
-      POSTGRES_DB: teko_test
-    ports:
-      - "5434:5432"
+      POSTGRES_DB: shop_test
+      PGDATA: /var/lib/postgresql/data/pgdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test -d teko_test"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U test -d shop_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
     tmpfs:
       - /var/lib/postgresql/data
+
+  api-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test:test@postgres-test:5432/shop_test?schema=public
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    command: >
+      sh -c "bunx prisma migrate deploy && bunx prisma db seed && bun run test:e2e"

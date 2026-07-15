@@ -1,32 +1,30 @@
 services:
   postgres:
     image: postgres:17.5-alpine
-    container_name: teko-postgres
+    container_name: shop-postgres
     restart: unless-stopped
-    env_file:
-      - .env
     ports:
-      - "${DATABASE_PORT:-5433}:5432"
-    volumes:
-      - teko-db:/var/lib/postgresql/data
+      - "5433:5432"
     environment:
-      POSTGRES_USER: ${DATABASE_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
-      POSTGRES_DB: ${DATABASE_NAME:-teko}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-shop}
       POSTGRES_INITDB_ARGS: "-E UTF8"
       PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - shop-db:/var/lib/postgresql/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${DATABASE_USERNAME:-postgres} -d ${DATABASE_NAME:-teko}",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-shop}",
         ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
-      - teko-network
+      - shop-network
     deploy:
       resources:
         limits:
@@ -47,29 +45,20 @@ services:
       context: .
       dockerfile: Dockerfile
       target: ${BUILD_TARGET:-development}
-    container_name: teko-api
+    container_name: shop-api
     restart: unless-stopped
     env_file:
       - .env
     ports:
-      - "${APP_PORT:-3001}:${APP_PORT:-3001}"
+      - "${APP_PORT:-3002}:${APP_PORT:-3002}"
+      - "5555:5555"   # Prisma Studio
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${DATABASE_USERNAME:-postgres}:${DATABASE_PASSWORD:-postgres}@postgres:5432/${DATABASE_NAME:-teko}}
-      DATABASE_TYPE: ${DATABASE_TYPE:-postgres}
-      DATABASE_HOST: ${DATABASE_HOST:-postgres}
-      DATABASE_PORT: ${DATABASE_PORT:-5432}
-      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
-      DATABASE_NAME: ${DATABASE_NAME:-teko}
-      DATABASE_SYNCHRONIZE: ${DATABASE_SYNCHRONIZE:-false}
-      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-100}
-      DATABASE_SSL_ENABLED: ${DATABASE_SSL_ENABLED:-false}
-      DATABASE_REJECT_UNAUTHORIZED: ${DATABASE_REJECT_UNAUTHORIZED:-false}
-      APP_PORT: ${APP_PORT:-3001}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-shop}?schema=public
+      APP_PORT: ${APP_PORT:-3002}
       API_PREFIX: ${API_PREFIX:-api}
       FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-http://localhost:3000}
-      BACKEND_DOMAIN: ${BACKEND_DOMAIN:-http://localhost:3001}
+      BACKEND_DOMAIN: ${BACKEND_DOMAIN:-http://localhost:3002}
       AUTH_JWT_TOKEN_EXPIRES_IN: ${AUTH_JWT_TOKEN_EXPIRES_IN:-1d}
       AUTH_REFRESH_TOKEN_EXPIRES_IN: ${AUTH_REFRESH_TOKEN_EXPIRES_IN:-30d}
       AUTH_FORGOT_SECRET: ${AUTH_FORGOT_SECRET}
@@ -80,19 +69,37 @@ services:
       ACCESS_JWT_PUBLIC_KEY: ${ACCESS_JWT_PUBLIC_KEY}
       REFRESH_JWT_PRIVATE_KEY: ${REFRESH_JWT_PRIVATE_KEY}
       REFRESH_JWT_PUBLIC_KEY: ${REFRESH_JWT_PUBLIC_KEY}
-      ALPACA_BASE_URL: ${ALPACA_BASE_URL}
-      ALPACA_IS_PAPER: ${ALPACA_IS_PAPER:-true}
-      ALPACA_CLIENT_ID: ${ALPACA_CLIENT_ID}
-      ALPACA_CLIENT_SECRET: ${ALPACA_CLIENT_SECRET}
-      ALPACA_REDIRECT_URI: ${ALPACA_REDIRECT_URI}
-      ALPACA_WS_API_KEY: ${ALPACA_WS_API_KEY}
-      ALPACA_WS_API_SECRET: ${ALPACA_WS_API_SECRET}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-ShopApp}
+      WEBAUTHN_ALLOWED_ORIGINS: ${WEBAUTHN_ALLOWED_ORIGINS:-http://localhost:3002}
+      WEBAUTHN_CHALLENGE_TTL_SEC: ${WEBAUTHN_CHALLENGE_TTL_SEC:-300}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3002}
+      THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
+      # Cloudinary
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      # MoMo
+      MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-MOMO_ATM_DEV}
+      MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
+      MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
+      MOMO_ENDPOINT: ${MOMO_ENDPOINT:-https://test-payment.momo.vn}
+      MOMO_IPN_URL: ${MOMO_IPN_URL:-}
+      MOMO_REDIRECT_URL: ${MOMO_REDIRECT_URL:-http://localhost:3000/checkout/success}
     volumes:
-      - ./src:/usr/src/app/src:${VOLUME_MODE:-rw}
+      - ./src:/usr/src/app/src:rw
+      - ./prisma:/usr/src/app/prisma:rw
       - ./package.json:/usr/src/app/package.json:ro
       - ./bun.lock:/usr/src/app/bun.lock:ro
       - ./tsconfig.json:/usr/src/app/tsconfig.json:ro
+      - ./tsconfig.build.json:/usr/src/app/tsconfig.build.json:ro
       - ./nest-cli.json:/usr/src/app/nest-cli.json:ro
+      - ./prisma.config.ts:/usr/src/app/prisma.config.ts:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,14 +107,14 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -f http://localhost:${APP_PORT:-3001}/api/health || exit 1",
+          "curl -f http://localhost:${APP_PORT:-3002}/api/health || exit 1",
         ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     networks:
-      - teko-network
+      - shop-network
     deploy:
       resources:
         limits:
@@ -122,9 +129,51 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: shop-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002/api}
+    volumes:
+      - ./frontend/src:/app/src:rw
+      - ./frontend/public:/app/public:rw
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - shop-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: shop-ngrok
+    restart: unless-stopped
+    command: "http api:3002 --log=stdout"
+    ports:
+      - "4040:4040"
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    depends_on:
+      - api
+    networks:
+      - shop-network
+    profiles:
+      - tunnel   # chỉ chạy khi: docker compose --profile tunnel up
+
 volumes:
-  teko-db:
+  shop-db:
 
 networks:
-  teko-network:
+  shop-network:
     driver: bridge

@@ -9,6 +9,11 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package.json bun.lock ./
 
+# Copy prisma schema BEFORE bun install
+COPY prisma ./prisma
+# Use generate-only config (no DATABASE_URL needed at build time)
+COPY prisma.generate.config.ts ./prisma.config.ts
+
 # ============================================================================
 # Development Stage
 # ============================================================================
@@ -17,25 +22,36 @@ FROM base AS development
 # Install curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Install all dependencies (including devDependencies)
-RUN bun install --frozen-lockfile
+# Install all dependencies (skip postinstall to avoid DATABASE_URL requirement at build time)
+RUN bun install --frozen-lockfile --ignore-scripts
+
+# Generate Prisma client explicitly (no DATABASE_URL needed with generate config)
+RUN bunx prisma generate
 
 # Copy source code (will be overridden by volumes in docker-compose)
 COPY . .
 
-# Expose port (will be overridden by docker-compose)
-EXPOSE 3001
+# Copy entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Development command - run directly without shell scripts
+# Expose API port
+EXPOSE 3002
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Development command with hot reload
 CMD ["bun", "run", "start:dev"]
 
 # ============================================================================
-# Build Stage (for production)
+# Builder Stage (for production)
 # ============================================================================
 FROM base AS builder
 
-# Install all dependencies (needed for build)
-RUN bun install --frozen-lockfile
+# Install all dependencies (skip postinstall to avoid DATABASE_URL requirement at build time)
+RUN bun install --frozen-lockfile --ignore-scripts
+
+# Generate Prisma client explicitly
+RUN bunx prisma generate
 
 # Copy source code
 COPY . .
@@ -48,7 +64,6 @@ RUN bun run build
 # ============================================================================
 FROM oven/bun:1.3.4 AS production
 
-# Install only production dependencies
 WORKDIR /usr/src/app
 
 # Healthcheck dependency
@@ -57,8 +72,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 # Copy package files
 COPY package.json bun.lock ./
 
-# Install production dependencies only (skip scripts to avoid prepare script requiring devDependencies)
+# Copy Prisma schema and the generate-only config so image builds do not
+# require a runtime DATABASE_URL.
+COPY prisma ./prisma
+COPY prisma.generate.config.ts ./prisma.config.ts
+
+# Install production dependencies only (skip scripts to avoid prepare/husky)
 RUN bun install --frozen-lockfile --production --ignore-scripts
+
+# Generate the production Prisma client without loading runtime secrets.
+RUN bunx prisma generate
 
 # Copy built application from builder
 COPY --from=builder /usr/src/app/dist ./dist
@@ -72,11 +95,11 @@ RUN chown -R bun:bun /usr/src/app
 USER bun
 
 # Expose port
-EXPOSE 3001
+EXPOSE 3002
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:3001/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3002/api/health || exit 1
 
 # Production command
 CMD ["bun", "run", "start:prod"]

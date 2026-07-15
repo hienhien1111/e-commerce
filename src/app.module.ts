@@ -6,6 +6,9 @@ import { ThrottlerGuard, ThrottlerModule, seconds } from '@nestjs/throttler';
 import authConfig from './infrastructure/config/auth.config';
 import webauthnConfig from './infrastructure/config/webauthn.config';
 import appConfig from './config/app.config';
+import googleOAuthConfig from './infrastructure/config/google-oauth.config';
+import cloudinaryConfig from './infrastructure/config/cloudinary.config';
+import momoConfig from './infrastructure/config/momo.config';
 import type { AllConfigType } from './config/config.type';
 
 import { LoggerModule } from './infrastructure/logger/logger.module';
@@ -19,7 +22,14 @@ import { AuthorizationModule } from './application/authorization/authorization.m
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [authConfig, webauthnConfig, appConfig],
+      load: [
+        authConfig,
+        webauthnConfig,
+        appConfig,
+        googleOAuthConfig,
+        cloudinaryConfig,
+        momoConfig,
+      ],
       envFilePath: ['.env'],
     }),
     ThrottlerModule.forRootAsync({

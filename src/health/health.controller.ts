@@ -29,6 +29,12 @@ export class HealthController {
   @Get()
   @HealthCheck()
   async check(): Promise<HealthCheckResult> {
+    const apiPrefix = this.configService.getOrThrow('app.apiPrefix', {
+      infer: true,
+    });
+    const appPort = this.configService.getOrThrow('app.port', {
+      infer: true,
+    });
     const list = [
       () => this.prismaHealth.pingCheck('database'),
       () => this.redisHealth.pingCheck('redis'),
@@ -38,7 +44,7 @@ export class HealthController {
             () =>
               this.http.pingCheck(
                 'api-docs',
-                `http://localhost:${this.configService.get('app.port', { infer: true })}/docs`,
+                `http://localhost:${appPort}/${apiPrefix}/docs`,
               ),
           ]
         : []),
