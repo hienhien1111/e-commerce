@@ -1,0 +1,40 @@
+.main {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+}
+
+.hero {
+  text-align: center;
+  padding: 48px 32px;
+  background: var(--color-bg-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  max-width: 400px;
+  width: 100%;
+}
+
+.logo {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  color: var(--color-text-secondary);
+  margin-bottom: 32px;
+}
+
+.links {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
