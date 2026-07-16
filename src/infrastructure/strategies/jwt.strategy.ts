@@ -1,4 +1,4 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -8,6 +8,8 @@ import { AllConfigType } from '@/config/config.type';
 import type { UserRepositoryPort } from '@/application/identity/ports/user/user.repository.port';
 import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.repository.port.token';
 import { User } from '@/domain/entities/user';
+import { ACCESS_TOKEN_COOKIE } from '@/infrastructure/auth/auth-cookie.constants';
+import { extractCookieToken } from './cookie-token.extractor';
 
 /**
  * Authenticated request user shape — the domain User plus the session id
@@ -27,7 +29,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       .getOrThrow('auth.accessPublicKey', { infer: true })
       .replaceAll('\\n', '\n');
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: (request) =>
+        extractCookieToken(request, ACCESS_TOKEN_COOKIE),
       secretOrKey: accessPublicKey,
       algorithms: ['RS256'] as const,
     });

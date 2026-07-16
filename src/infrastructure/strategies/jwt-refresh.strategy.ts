@@ -1,10 +1,12 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { JwtRefreshPayloadType } from '../config/jwt-refresh-payload.type';
 import { OrNeverType } from '@/utils/types/or-never.type';
 import { AllConfigType } from '@/config/config.type';
+import { REFRESH_TOKEN_COOKIE } from '@/infrastructure/auth/auth-cookie.constants';
+import { extractCookieToken } from './cookie-token.extractor';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
@@ -16,7 +18,8 @@ export class JwtRefreshStrategy extends PassportStrategy(
       .getOrThrow('auth.refreshPublicKey', { infer: true })
       .replaceAll('\\n', '\n');
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: (request) =>
+        extractCookieToken(request, REFRESH_TOKEN_COOKIE),
       secretOrKey: refreshPublicKey,
       algorithms: ['RS256'] as const,
     });

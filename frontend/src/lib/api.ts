@@ -1,8 +1,8 @@
 // ============================================================
-// API fetch wrapper with JWT auto-attach and refresh handling
+// API fetch wrapper with HttpOnly cookie session refresh handling
 // ============================================================
 
-import { auth, type AuthTokens } from './auth';
+import { auth } from './auth';
 
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api'
@@ -19,15 +19,34 @@ export class ApiError extends Error {
   }
 }
 
+export function getValidationError(
+  error: unknown,
+  field: string,
+): string | undefined {
+  if (!(error instanceof ApiError) || typeof error.data !== 'object') {
+    return undefined;
+  }
+
+  const errors = (error.data as { errors?: unknown }).errors;
+  if (typeof errors !== 'object' || errors === null) {
+    return undefined;
+  }
+
+  const value = (errors as Record<string, unknown>)[field];
+  return typeof value === 'string' ? value : undefined;
+}
+
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
 }
 
-type RefreshResponse = Pick<AuthTokens, 'token'> &
-  Partial<Pick<AuthTokens, 'refreshToken' | 'tokenExpires'>>;
-
 function normalizePath(path: string): string {
   return path.replace(/^\/+/, '');
+}
+
+/** Build an absolute API URL from a path relative to the configured `/api` base. */
+export function apiUrl(path: string): string {
+  return `${API_URL}/${normalizePath(path)}`;
 }
 
 function isFormData(body: BodyInit | null | undefined): body is FormData {
@@ -57,16 +76,10 @@ async function fetchApi<T = unknown>(
     requestHeaders.set('Content-Type', 'application/json');
   }
 
-  if (!skipAuth) {
-    const token = auth.getAccessToken();
-    if (token && !requestHeaders.has('Authorization')) {
-      requestHeaders.set('Authorization', `Bearer ${token}`);
-    }
-  }
-
-  const response = await fetch(`${API_URL}/${normalizePath(path)}`, {
+  const response = await fetch(apiUrl(path), {
     ...requestOptions,
     headers: requestHeaders,
+    credentials: requestOptions.credentials ?? 'include',
   });
 
   if (response.status === 204) {
@@ -99,28 +112,13 @@ async function fetchApi<T = unknown>(
 }
 
 async function tryRefreshToken(): Promise<boolean> {
-  const refreshToken = auth.getRefreshToken();
-  if (!refreshToken) return false;
-
   try {
-    const response = await fetch(`${API_URL}/v1/refresh`, {
+    const response = await fetch(apiUrl('v1/refresh'), {
       method: 'POST',
-      headers: { Authorization: `Bearer ${refreshToken}` },
+      credentials: 'include',
     });
 
-    if (!response.ok) return false;
-
-    const data = (await parseResponseData(response)) as RefreshResponse;
-    if (!data || typeof data.token !== 'string') return false;
-
-    auth.setTokens({
-      token: data.token,
-      refreshToken:
-        typeof data.refreshToken === 'string' ? data.refreshToken : refreshToken,
-      tokenExpires:
-        typeof data.tokenExpires === 'number' ? data.tokenExpires : Date.now(),
-    });
-    return true;
+    return response.ok;
   } catch {
     return false;
   }

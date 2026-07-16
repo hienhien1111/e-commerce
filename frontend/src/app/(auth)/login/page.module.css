@@ -1,0 +1,86 @@
+.card {
+  width: 400px;
+  background: #fff;
+  border-radius: 4px;
+  padding: 30px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.title {
+  font-size: 20px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.notice {
+  margin: -8px 0 16px;
+  color: var(--color-success);
+  font-size: 13px;
+  text-align: center;
+}
+
+.googleBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: background 0.2s;
+}
+
+.googleBtn:hover {
+  background: var(--color-bg);
+}
+
+.googleIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.divider::before {
+  margin-right: 16px;
+}
+
+.divider::after {
+  margin-left: 16px;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.footer a {
+  color: var(--color-primary);
+  font-weight: 500;
+}

@@ -15,6 +15,8 @@ import { WellKnownController } from '@/presentation/http/controllers/well-known.
 import { JwtStrategy } from '@/infrastructure/strategies/jwt.strategy';
 import { JwtRefreshStrategy } from '@/infrastructure/strategies/jwt-refresh.strategy';
 import { AnonymousStrategy } from '@/infrastructure/strategies/anonymous.strategy';
+import { GoogleOauthStrategy } from '@/infrastructure/strategies/google-oauth.strategy';
+import { GoogleOAuthConfiguredGuard } from '@/infrastructure/guards/google-oauth-configured.guard';
 
 import { PasswordHasherModule } from '@/infrastructure/providers/password-hasher.module';
 import { JwtTokenProvider } from '@/infrastructure/providers/jwt-token-provider';
@@ -30,6 +32,7 @@ import { EmailPasswordLoginStrategy } from '@/application/identity/strategies/em
 import { WebAuthnLoginStrategy } from '@/application/identity/strategies/passkey-auth.strategy';
 
 import { LoginHandler } from '@/application/identity/commands/login';
+import { GoogleLoginHandler } from '@/application/identity/commands/google-login';
 import { RegisterHandler } from '@/application/identity/commands/register';
 import {
   ConfirmEmailHandler,
@@ -64,6 +67,7 @@ import { CHALLENGE_STORE_PORT } from '@/application/identity/ports/webauthn/chal
 
 const CommandHandlers = [
   LoginHandler,
+  GoogleLoginHandler,
   RegisterHandler,
   ConfirmEmailHandler,
   ConfirmNewEmailHandler,
@@ -112,6 +116,8 @@ const EventHandlers = [
     JwtStrategy,
     JwtRefreshStrategy,
     AnonymousStrategy,
+    GoogleOauthStrategy,
+    GoogleOAuthConfiguredGuard,
 
     LoginStrategyResolver,
     EmailPasswordLoginStrategy,

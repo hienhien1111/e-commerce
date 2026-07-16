@@ -18,7 +18,7 @@ import { GetUsersQuery } from '@/application/identity/queries/get-users';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import {
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiParam,
@@ -45,7 +45,7 @@ import { PermissionActionEnum } from '@/domain/enums/permission-action.enum';
 import { PermissionSubjectEnum } from '@/domain/enums/permission-subject.enum';
 
 @ApiTags('Users')
-@ApiBearerAuth()
+@ApiCookieAuth('access_token')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller({
   path: 'users',

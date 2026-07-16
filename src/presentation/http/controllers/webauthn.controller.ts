@@ -15,7 +15,7 @@ import {
   ApiOperation,
   ApiOkResponse,
   ApiBadRequestResponse,
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiParam,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -86,7 +86,7 @@ export class WebAuthnController {
 
   @Get('credentials')
   @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
+  @ApiCookieAuth('access_token')
   @ApiOperation({ summary: 'Get user WebAuthn credentials' })
   @ApiOkResponse({ description: 'User credentials retrieved successfully' })
   async getUserCredentials(@CurrentUser() user: User) {
@@ -95,7 +95,7 @@ export class WebAuthnController {
 
   @Delete('credentials/:credentialId')
   @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
+  @ApiCookieAuth('access_token')
   @ApiOperation({ summary: 'Revoke WebAuthn credential' })
   @ApiParam({ name: 'credentialId', description: 'Credential ID to revoke' })
   @ApiOkResponse({ description: 'Credential revoked successfully' })
