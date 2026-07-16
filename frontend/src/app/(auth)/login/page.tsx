@@ -8,7 +8,7 @@ import { api, apiUrl, getValidationError } from '@/lib/api';
 import styles from './page.module.css';
 
 function getRedirectPath(value: string | null): string {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/';
+  return value?.startsWith('/') && !value.startsWith('//') ? value : '/profile';
 }
 
 function getGoogleErrorMessage(code: string): string {

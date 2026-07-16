@@ -226,7 +226,7 @@ export class AuthController {
         new GoogleLoginCommand(req.user),
       );
       setAuthCookies(res, result, this.configService);
-      redirectUrl.pathname = '/';
+      redirectUrl.pathname = '/profile';
     } catch (error: unknown) {
       const validationError = getValidationErrorCode(error);
       redirectUrl.searchParams.set(
