@@ -1,0 +1,44 @@
+.authLayout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  height: 84px;
+  background-color: var(--color-bg-white);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+}
+
+.headerContent {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.logo {
+  color: var(--color-primary);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #222;
+}
+
+.main {
+  flex: 1;
+  background-color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
