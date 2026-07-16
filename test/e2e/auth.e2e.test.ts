@@ -8,6 +8,8 @@ import {
   registerUser,
   type RegisterPayload,
 } from './helpers/auth.helper';
+import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+import { InMemoryFileStorage } from './helpers/in-memory-file-storage';
 
 const createUser = (prefix: string): RegisterPayload => ({
   email: `${prefix}-${randomUUID()}@example.com`,
@@ -18,6 +20,10 @@ const createUser = (prefix: string): RegisterPayload => ({
 
 describe('Auth E2E', () => {
   let app: INestApplication;
+  const pngFile = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL4XQAAAABJRU5ErkJggg==',
+    'base64',
+  );
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -127,6 +133,142 @@ describe('Auth E2E', () => {
         .get('/api/v1/me')
         .set('Cookie', 'access_token=invalid-token')
         .expect(401);
+    });
+  });
+
+  describe('PATCH /api/v1/me', () => {
+    const user = createUser('profile');
+    let accessCookie: string;
+
+    beforeAll(async () => {
+      await registerUser(app, user);
+      ({ access: accessCookie } = await loginUser(
+        app,
+        user.email,
+        user.password,
+      ));
+    });
+
+    it('200 — updates profile names and normalizes a Vietnamese mobile number', async () => {
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/me')
+        .set('Cookie', accessCookie)
+        .send({
+          firstName: 'Updated',
+          lastName: 'Customer',
+          phone: '0901 234-567',
+        })
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        firstName: 'Updated',
+        lastName: 'Customer',
+        phone: '0901234567',
+      });
+    });
+
+    it('422 — rejects an invalid phone number', async () => {
+      await request(app.getHttpServer())
+        .patch('/api/v1/me')
+        .set('Cookie', accessCookie)
+        .send({ phone: '0123456789' })
+        .expect(422);
+    });
+
+    it('200 — clears the phone number with null', async () => {
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/me')
+        .set('Cookie', accessCookie)
+        .send({ phone: null })
+        .expect(200);
+
+      expect(response.body.phone).toBeNull();
+    });
+  });
+
+  describe('POST /api/v1/me/avatar', () => {
+    const user = createUser('avatar');
+    let accessCookie: string;
+    let fileStorage: InMemoryFileStorage;
+
+    beforeAll(async () => {
+      await registerUser(app, user);
+      ({ access: accessCookie } = await loginUser(
+        app,
+        user.email,
+        user.password,
+      ));
+      fileStorage = app.get<InMemoryFileStorage>(FILE_STORAGE_PORT);
+    });
+
+    it('401 — requires an access cookie', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/me/avatar')
+        .attach('file', pngFile, {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        })
+        .expect(401);
+    });
+
+    it('400 — requires an avatar file', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/me/avatar')
+        .set('Cookie', accessCookie)
+        .expect(400);
+    });
+
+    it('400 — rejects unsupported image types', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/me/avatar')
+        .set('Cookie', accessCookie)
+        .attach('file', Buffer.from('gif'), {
+          filename: 'avatar.gif',
+          contentType: 'image/gif',
+        })
+        .expect(400);
+    });
+
+    it('413 — rejects an avatar larger than 2 MiB', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/me/avatar')
+        .set('Cookie', accessCookie)
+        .attach('file', Buffer.alloc(2 * 1024 * 1024 + 1), {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        })
+        .expect(413);
+    });
+
+    it('200 — uploads a PNG avatar and returns its public URL', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/me/avatar')
+        .set('Cookie', accessCookie)
+        .attach('file', pngFile, {
+          filename: 'avatar.png',
+          contentType: 'image/png',
+        })
+        .expect(200);
+
+      expect(response.body.avatarUrl).toMatch(/^https:\/\/storage\.test\//);
+      expect(response.body).not.toHaveProperty('avatarPublicId');
+      expect(fileStorage.uploads.at(-1)?.folder).toMatch(/^avatars\//);
+    });
+
+    it('200 — replaces the avatar and deletes the old storage asset', async () => {
+      const previousAvatar = fileStorage.uploads.at(-1)?.file;
+      expect(previousAvatar).toBeDefined();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/me/avatar')
+        .set('Cookie', accessCookie)
+        .attach('file', pngFile, {
+          filename: 'replacement.png',
+          contentType: 'image/png',
+        })
+        .expect(200);
+
+      expect(fileStorage.deletedPublicIds).toContain(previousAvatar?.publicId);
     });
   });
 

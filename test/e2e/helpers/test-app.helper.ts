@@ -11,6 +11,8 @@ import { AppModule } from '@/app.module';
 import validationOptions from '@/utils/validation-options';
 import { ResolvePromisesInterceptor } from '@/utils/serializer.interceptor';
 import { SerializeToJSONInterceptor } from '@/utils/serialize-to-json.interceptor';
+import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+import { InMemoryFileStorage } from './in-memory-file-storage';
 
 /**
  * Creates and initialises a full NestJS application for E2E testing.
@@ -19,7 +21,10 @@ import { SerializeToJSONInterceptor } from '@/utils/serialize-to-json.intercepto
 export async function createTestApp(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    .overrideProvider(FILE_STORAGE_PORT)
+    .useValue(new InMemoryFileStorage())
+    .compile();
 
   const app = moduleFixture.createNestApplication();
 
