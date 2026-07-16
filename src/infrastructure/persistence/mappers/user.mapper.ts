@@ -36,6 +36,9 @@ export class UserMapper {
       socialId: raw.socialId,
       firstName: raw.firstName,
       lastName: raw.lastName,
+      phone: raw.phone,
+      avatarUrl: raw.avatarUrl,
+      avatarPublicId: raw.avatarPublicId,
       role: firstRole ? RoleMapper.toDomain(firstRole) : null,
       roleId: firstRole ? firstRole.id : null,
       createdAt: raw.createdAt,
@@ -57,6 +60,9 @@ export class UserMapper {
     socialId: string | null;
     firstName: string | null;
     lastName: string | null;
+    phone: string | null;
+    avatarUrl: string | null;
+    avatarPublicId: string | null;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -69,6 +75,9 @@ export class UserMapper {
       socialId: domainEntity.socialId,
       firstName: domainEntity.firstName,
       lastName: domainEntity.lastName,
+      phone: domainEntity.phone,
+      avatarUrl: domainEntity.avatarUrl,
+      avatarPublicId: domainEntity.avatarPublicId,
       createdAt: domainEntity.createdAt,
       updatedAt: domainEntity.updatedAt,
       deletedAt: domainEntity.deletedAt,

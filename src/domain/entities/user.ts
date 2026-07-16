@@ -9,6 +9,9 @@ export interface UserEssentialProps {
   socialId: string | null;
   firstName: string | null;
   lastName: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  avatarPublicId?: string | null;
 }
 
 type UserRoleProps = {
@@ -81,6 +84,18 @@ export class User extends BaseDomainModel<UserInternalProps> {
     return this.props.lastName;
   }
 
+  get phone(): string | null {
+    return this.props.phone ?? null;
+  }
+
+  get avatarUrl(): string | null {
+    return this.props.avatarUrl ?? null;
+  }
+
+  get avatarPublicId(): string | null {
+    return this.props.avatarPublicId ?? null;
+  }
+
   get role(): UserRoleProps['role'] {
     return this.props.role;
   }
@@ -106,6 +121,7 @@ export class User extends BaseDomainModel<UserInternalProps> {
   updateProfile(
     firstName?: UserEssentialProps['firstName'],
     lastName?: UserEssentialProps['lastName'],
+    phone?: string | null,
   ): void {
     if (firstName !== undefined) {
       this.props.firstName = firstName;
@@ -113,6 +129,15 @@ export class User extends BaseDomainModel<UserInternalProps> {
     if (lastName !== undefined) {
       this.props.lastName = lastName;
     }
+    if (phone !== undefined) {
+      this.props.phone = phone;
+    }
+    this.touch();
+  }
+
+  updateAvatar(avatarUrl: string | null, avatarPublicId: string | null): void {
+    this.props.avatarUrl = avatarUrl;
+    this.props.avatarPublicId = avatarPublicId;
     this.touch();
   }
 
@@ -141,6 +166,8 @@ export class User extends BaseDomainModel<UserInternalProps> {
       socialId: this.socialId,
       firstName: this.firstName,
       lastName: this.lastName,
+      phone: this.phone,
+      avatarUrl: this.avatarUrl,
       role: this.role ? this.role.toJSON() : null,
       deletedAt: this.deletedAt,
     };
