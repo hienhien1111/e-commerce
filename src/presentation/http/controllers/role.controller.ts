@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import {
-  ApiBearerAuth,
+  ApiCookieAuth,
   ApiOkResponse,
   ApiTags,
   ApiOperation,
@@ -24,7 +24,7 @@ import { NullableType } from '@/utils/types/nullable.type';
 import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('Roles')
-@ApiBearerAuth()
+@ApiCookieAuth('access_token')
 @UseGuards(AuthGuard('jwt'))
 @Controller({
   path: 'roles',

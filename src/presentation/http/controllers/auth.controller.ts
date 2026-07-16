@@ -9,7 +9,12 @@ import {
   Patch,
   Delete,
   SerializeOptions,
+  Req,
+  Res,
+  UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
 import { CurrentUser } from '@/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/infrastructure/strategies/jwt.strategy';
 import type { JwtRefreshPayloadType } from '@/infrastructure/config/jwt-refresh-payload.type';
@@ -28,7 +33,13 @@ import { DeleteUserCommand } from '@/application/identity/commands/delete-user';
 import { GetMeQuery } from '@/application/identity/queries/get-me';
 import { AuthLoginCommand } from '@/application/identity/commands/login';
 import {
-  ApiBearerAuth,
+  GoogleLoginCommand,
+  type GoogleProfile,
+} from '@/application/identity/commands/google-login';
+import { GoogleOAuthConfiguredGuard } from '@/infrastructure/guards/google-oauth-configured.guard';
+import { AllConfigType } from '@/config/config.type';
+import {
+  ApiCookieAuth,
   ApiOkResponse,
   ApiTags,
   ApiOperation,
@@ -45,12 +56,40 @@ import { AuthUpdateDto } from '../dtos/auth-update.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthRegisterLoginDto } from '../dtos/auth-register-login.dto';
 import { AuthLoginDto } from '../dtos/auth-login.dto';
-import { LoginResponseDto } from '../dtos/login-response.dto';
 import { NullableType } from '@/utils/types/nullable.type';
 import { User } from '@/domain/entities/user';
 import { UserDto } from '@/presentation/http/dtos/user.dto';
-import { RefreshResponseDto } from '../dtos/refresh-response.dto';
 import { WebAuthnLoginDto } from '../dtos/webauthn-login.dto';
+import {
+  clearAuthCookies,
+  setAuthCookies,
+} from '@/infrastructure/auth/auth-cookie.util';
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+} from '@/infrastructure/auth/auth-cookie.constants';
+
+type GoogleOAuthRequest = Request & { user: GoogleProfile };
+
+function getValidationErrorCode(error: unknown): string | undefined {
+  if (!(error instanceof UnprocessableEntityException)) {
+    return undefined;
+  }
+
+  const response = error.getResponse();
+  if (typeof response !== 'object' || response === null) {
+    return undefined;
+  }
+
+  const errors = (response as { errors?: unknown }).errors;
+  if (typeof errors !== 'object' || errors === null) {
+    return undefined;
+  }
+
+  const emailError = (errors as Record<string, unknown>).email;
+  return typeof emailError === 'string' ? emailError : undefined;
+}
+
 @ApiTags('Auth')
 @Controller({
   version: '1',
@@ -59,6 +98,7 @@ export class AuthController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly configService: ConfigService<AllConfigType>,
   ) {}
 
   @SerializeOptions({
@@ -67,7 +107,7 @@ export class AuthController {
   @Post('email/login')
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiOkResponse({
-    type: LoginResponseDto,
+    type: UserDto,
     description: 'Login successful',
   })
   @ApiBadRequestResponse({ description: 'Invalid input' })
@@ -75,8 +115,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   public async login(
     @Body() loginDto: AuthLoginDto,
-  ): Promise<LoginResponseDto> {
-    return this.commandBus.execute(new AuthLoginCommand(loginDto));
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<User> {
+    const result = await this.commandBus.execute(
+      new AuthLoginCommand(loginDto),
+    );
+    setAuthCookies(response, result, this.configService);
+    return result.user;
   }
 
   @Post('email/register')
@@ -145,7 +190,47 @@ export class AuthController {
     );
   }
 
-  @ApiBearerAuth()
+  @Get('google')
+  @UseGuards(GoogleOAuthConfiguredGuard, AuthGuard('google'))
+  @ApiOperation({ summary: 'Initiate Google OAuth login' })
+  @HttpCode(HttpStatus.OK)
+  async googleAuth(): Promise<void> {
+    // Passport strategy automatically redirects to Google
+  }
+
+  @Get('google/callback')
+  @UseGuards(GoogleOAuthConfiguredGuard, AuthGuard('google'))
+  @ApiOperation({ summary: 'Google OAuth callback' })
+  @HttpCode(HttpStatus.OK)
+  async googleAuthRedirect(
+    @Req() req: GoogleOAuthRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const frontendDomain = this.configService.getOrThrow('app.frontendDomain', {
+      infer: true,
+    });
+    const redirectUrl = new URL('/login', frontendDomain);
+
+    try {
+      const result = await this.commandBus.execute(
+        new GoogleLoginCommand(req.user),
+      );
+      setAuthCookies(res, result, this.configService);
+      redirectUrl.pathname = '/';
+    } catch (error: unknown) {
+      const validationError = getValidationErrorCode(error);
+      redirectUrl.searchParams.set(
+        'error',
+        validationError?.startsWith('needLoginViaProvider')
+          ? 'use_email_login'
+          : 'google_login_failed',
+      );
+    }
+
+    res.redirect(redirectUrl.toString());
+  }
+
+  @ApiCookieAuth(ACCESS_TOKEN_COOKIE)
   @SerializeOptions({
     groups: ['me'],
   })
@@ -164,39 +249,39 @@ export class AuthController {
     return this.queryBus.execute(new GetMeQuery(user.id));
   }
 
-  @ApiBearerAuth()
-  @ApiOkResponse({
-    type: RefreshResponseDto,
-    description: 'Token refreshed successfully',
-  })
+  @ApiCookieAuth(REFRESH_TOKEN_COOKIE)
+  @ApiNoContentResponse({ description: 'Session refreshed successfully' })
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiUnauthorizedResponse({ description: 'Invalid refresh token' })
-  @SerializeOptions({
-    groups: ['me'],
-  })
   @Post('refresh')
   @UseGuards(AuthGuard('jwt-refresh'))
-  @HttpCode(HttpStatus.OK)
-  public refresh(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  public async refresh(
     @CurrentUser() payload: JwtRefreshPayloadType,
-  ): Promise<RefreshResponseDto> {
-    return this.commandBus.execute(
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    const result = await this.commandBus.execute(
       new RefreshTokenCommand(payload.sessionId, payload.hash),
     );
+    setAuthCookies(response, result, this.configService);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth(ACCESS_TOKEN_COOKIE)
   @Post('logout')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Logout current session' })
   @ApiNoContentResponse({ description: 'Logged out successfully' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  public async logout(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+  public async logout(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
     await this.commandBus.execute(new LogoutCommand(user.sessionId));
+    clearAuthCookies(response, this.configService);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth(ACCESS_TOKEN_COOKIE)
   @SerializeOptions({
     groups: ['me'],
   })
@@ -218,15 +303,19 @@ export class AuthController {
     return this.commandBus.execute(new UpdateUserCommand(user.id, userDto));
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth(ACCESS_TOKEN_COOKIE)
   @Delete('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Delete current user account' })
   @ApiNoContentResponse({ description: 'User deleted successfully' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  public async delete(@CurrentUser() user: AuthenticatedUser): Promise<void> {
-    return this.commandBus.execute(new DeleteUserCommand(user.id));
+  public async delete(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.commandBus.execute(new DeleteUserCommand(user.id));
+    clearAuthCookies(response, this.configService);
   }
 
   @Post('webauthn/login')
@@ -239,7 +328,7 @@ export class AuthController {
     description: 'WebAuthn authentication response and challenge key',
   })
   @ApiOkResponse({
-    type: LoginResponseDto,
+    type: UserDto,
     description: 'Login successful',
   })
   @ApiBadRequestResponse({ description: 'Invalid WebAuthn response' })
@@ -247,7 +336,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   public async loginWithWebAuthn(
     @Body() dto: WebAuthnLoginDto,
-  ): Promise<LoginResponseDto> {
-    return this.commandBus.execute(new AuthLoginCommand(dto));
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<User> {
+    const result = await this.commandBus.execute(new AuthLoginCommand(dto));
+    setAuthCookies(response, result, this.configService);
+    return result.user;
   }
 }

@@ -4,7 +4,6 @@ import request from 'supertest';
 import { createTestApp } from './helpers/test-app.helper';
 import { cleanDatabase } from './helpers/db.helper';
 import {
-  bearerHeader,
   loginUser,
   registerUser,
   type RegisterPayload,
@@ -67,11 +66,11 @@ describe('Auth E2E', () => {
       await registerUser(app, user);
     });
 
-    it('200 — returns tokens for valid credentials', async () => {
-      const tokens = await loginUser(app, user.email, user.password);
+    it('200 — sets HttpOnly session cookies for valid credentials', async () => {
+      const cookies = await loginUser(app, user.email, user.password);
 
-      expect(tokens.token).toBeTruthy();
-      expect(tokens.refreshToken).toBeTruthy();
+      expect(cookies.access).toStartWith('access_token=');
+      expect(cookies.refresh).toStartWith('refresh_token=');
     });
 
     it('422 — rejects a wrong password', async () => {
@@ -98,35 +97,35 @@ describe('Auth E2E', () => {
 
   describe('GET /api/v1/me', () => {
     const user = createUser('me');
-    let accessToken: string;
+    let accessCookie: string;
 
     beforeAll(async () => {
       await registerUser(app, user);
-      ({ token: accessToken } = await loginUser(
+      ({ access: accessCookie } = await loginUser(
         app,
         user.email,
         user.password,
       ));
     });
 
-    it('200 — returns the current user with a valid token', async () => {
+    it('200 — returns the current user with a valid access cookie', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/me')
-        .set('Authorization', bearerHeader(accessToken))
+        .set('Cookie', accessCookie)
         .expect(200);
 
       expect(response.body.email).toBe(user.email);
       expect(response.body.firstName).toBe(user.firstName);
     });
 
-    it('401 — requires a token', async () => {
+    it('401 — requires an access cookie', async () => {
       await request(app.getHttpServer()).get('/api/v1/me').expect(401);
     });
 
-    it('401 — rejects an invalid token', async () => {
+    it('401 — rejects an invalid access cookie', async () => {
       await request(app.getHttpServer())
         .get('/api/v1/me')
-        .set('Authorization', 'Bearer invalid-token')
+        .set('Cookie', 'access_token=invalid-token')
         .expect(401);
     });
   });
@@ -138,21 +137,25 @@ describe('Auth E2E', () => {
       await registerUser(app, user);
     });
 
-    it('200 — returns a replacement access token', async () => {
-      const tokens = await loginUser(app, user.email, user.password);
+    it('204 — rotates the session cookies', async () => {
+      const cookies = await loginUser(app, user.email, user.password);
       const response = await request(app.getHttpServer())
         .post('/api/v1/refresh')
-        .set('Authorization', bearerHeader(tokens.refreshToken))
-        .expect(200);
+        .set('Cookie', cookies.refresh)
+        .expect(204);
 
-      expect(response.body.token).toBeTruthy();
-      expect(response.body.refreshToken).toBeTruthy();
+      expect(response.headers['set-cookie']).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^access_token=.*HttpOnly/),
+          expect.stringMatching(/^refresh_token=.*HttpOnly/),
+        ]),
+      );
     });
 
-    it('401 — rejects an invalid refresh token', async () => {
+    it('401 — rejects an invalid refresh cookie', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/refresh')
-        .set('Authorization', 'Bearer bad-refresh-token')
+        .set('Cookie', 'refresh_token=bad-refresh-token')
         .expect(401);
     });
   });
@@ -165,15 +168,22 @@ describe('Auth E2E', () => {
     });
 
     it('204 — logs out an authenticated session', async () => {
-      const tokens = await loginUser(app, user.email, user.password);
+      const cookies = await loginUser(app, user.email, user.password);
 
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post('/api/v1/logout')
-        .set('Authorization', bearerHeader(tokens.token))
+        .set('Cookie', cookies.access)
         .expect(204);
+
+      expect(response.headers['set-cookie']).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^access_token=;/),
+          expect.stringMatching(/^refresh_token=;/),
+        ]),
+      );
     });
 
-    it('401 — requires a token', async () => {
+    it('401 — requires an access cookie', async () => {
       await request(app.getHttpServer()).post('/api/v1/logout').expect(401);
     });
   });

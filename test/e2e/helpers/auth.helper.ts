@@ -1,9 +1,9 @@
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 
-export interface TestAuthTokens {
-  token: string;
-  refreshToken: string;
+export interface TestAuthCookies {
+  access: string;
+  refresh: string;
 }
 
 export interface RegisterPayload {
@@ -32,21 +32,29 @@ export async function registerUser(
 }
 
 /**
- * Logs in and returns JWT tokens.
+ * Logs in and returns the HttpOnly session cookies.
  */
 export async function loginUser(
   app: INestApplication,
   email: string,
   password: string,
-): Promise<TestAuthTokens> {
+): Promise<TestAuthCookies> {
   const res = await request(app.getHttpServer())
     .post('/api/v1/email/login')
     .send({ email, password })
     .expect(200);
 
+  const cookies = res.headers['set-cookie'] ?? [];
+  const access = cookies.find((cookie) => cookie.startsWith('access_token='));
+  const refresh = cookies.find((cookie) => cookie.startsWith('refresh_token='));
+
+  if (!access || !refresh) {
+    throw new Error('Login response did not set both auth cookies');
+  }
+
   return {
-    token: res.body.token,
-    refreshToken: res.body.refreshToken,
+    access: access.split(';', 1)[0],
+    refresh: refresh.split(';', 1)[0],
   };
 }
 
@@ -56,14 +64,7 @@ export async function loginUser(
 export async function registerAndLogin(
   app: INestApplication,
   payload: RegisterPayload,
-): Promise<TestAuthTokens> {
+): Promise<TestAuthCookies> {
   await registerUser(app, payload);
   return loginUser(app, payload.email, payload.password);
-}
-
-/**
- * Returns Authorization header value for a given token.
- */
-export function bearerHeader(token: string): string {
-  return `Bearer ${token}`;
 }
