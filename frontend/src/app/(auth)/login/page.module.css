@@ -3,7 +3,7 @@
   background: #fff;
   border-radius: 4px;
   padding: 30px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
 }
 
 .title {
@@ -16,6 +16,13 @@
   margin: -8px 0 16px;
   color: var(--color-success);
   font-size: 13px;
+  text-align: center;
+}
+
+.emailHelp {
+  margin: -8px 0 16px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
   text-align: center;
 }
 
@@ -52,7 +59,8 @@
   font-size: 12px;
 }
 
-.divider::before, .divider::after {
+.divider::before,
+.divider::after {
   content: '';
   flex: 1;
   border-bottom: 1px solid var(--color-border);
@@ -83,4 +91,47 @@
 .footer a {
   color: var(--color-primary);
   font-weight: 500;
+}
+
+.nameFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.passwordField {
+  position: relative;
+}
+
+.passwordField :global(.form-input) {
+  padding-right: 48px;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  padding: 4px;
+  transform: translateY(-50%);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.passwordHint {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 480px) {
+  .card {
+    width: min(400px, 100%);
+    padding: 24px 20px;
+  }
+
+  .nameFields {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
 }
