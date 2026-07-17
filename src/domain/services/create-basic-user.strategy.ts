@@ -12,6 +12,9 @@ export class CreateBasicUserStrategy
     return User._create(
       {
         ...input,
+        phone: input.phone ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+        avatarPublicId: input.avatarPublicId ?? null,
         roleId: input.role ? input.role.id : null,
       },
       generateUuidV7(),

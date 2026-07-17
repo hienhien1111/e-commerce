@@ -46,6 +46,22 @@ export class UserDto {
 
   @Allow()
   @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: '0901234567',
+  })
+  phone?: string | null;
+
+  @Allow()
+  @ApiPropertyOptional({
+    type: String,
+    format: 'uri',
+    nullable: true,
+  })
+  avatarUrl?: string | null;
+
+  @Allow()
+  @ApiPropertyOptional({
     type: RoleDto,
     nullable: true,
   })

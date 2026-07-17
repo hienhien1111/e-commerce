@@ -22,7 +22,7 @@ describe('AuthController Google OAuth callback', () => {
     redirect: jest.fn(),
   });
 
-  it('sets HttpOnly cookies and redirects to the configured frontend', async () => {
+  it('sets HttpOnly cookies and redirects to the profile page', async () => {
     const commandBus = {
       execute: jest.fn().mockResolvedValue({
         token: 'access+token',
@@ -46,7 +46,9 @@ describe('AuthController Google OAuth callback', () => {
     );
 
     expect(response.cookie).toHaveBeenCalledTimes(2);
-    expect(response.redirect).toHaveBeenCalledWith('http://localhost:3000/');
+    expect(response.redirect).toHaveBeenCalledWith(
+      'http://localhost:3000/profile',
+    );
   });
 
   it('redirects an existing email account to email login', async () => {

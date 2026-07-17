@@ -60,6 +60,9 @@ export class PrismaUserRepository implements UserRepositoryPort {
         socialId: persistence.socialId,
         firstName: persistence.firstName,
         lastName: persistence.lastName,
+        phone: persistence.phone,
+        avatarUrl: persistence.avatarUrl,
+        avatarPublicId: persistence.avatarPublicId,
         createdAt: persistence.createdAt,
         updatedAt: persistence.updatedAt,
         deletedAt: persistence.deletedAt,
@@ -209,6 +212,22 @@ export class PrismaUserRepository implements UserRepositoryPort {
         payload.lastName ?? undefined,
       );
     }
+    if (payload.phone !== undefined) {
+      domainEntity.updateProfile(undefined, undefined, payload.phone);
+    }
+    if (
+      payload.avatarUrl !== undefined ||
+      payload.avatarPublicId !== undefined
+    ) {
+      domainEntity.updateAvatar(
+        payload.avatarUrl === undefined
+          ? domainEntity.avatarUrl
+          : payload.avatarUrl,
+        payload.avatarPublicId === undefined
+          ? domainEntity.avatarPublicId
+          : payload.avatarPublicId,
+      );
+    }
     if (payload.role !== undefined) {
       if (payload.role === null) {
         domainEntity.clearRole();
@@ -230,6 +249,9 @@ export class PrismaUserRepository implements UserRepositoryPort {
         socialId: persistence.socialId,
         firstName: persistence.firstName,
         lastName: persistence.lastName,
+        phone: persistence.phone,
+        avatarUrl: persistence.avatarUrl,
+        avatarPublicId: persistence.avatarPublicId,
         updatedAt: persistence.updatedAt,
         deletedAt: persistence.deletedAt,
         ...(roleChanged

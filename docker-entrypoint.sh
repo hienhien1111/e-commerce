@@ -8,5 +8,11 @@
 echo "🔧 Running prisma generate..."
 bunx prisma generate 2>/dev/null || true
 
+echo "🗄️  Applying database migrations..."
+bunx prisma migrate deploy
+
+echo "🌱 Seeding default roles and permissions..."
+bunx prisma db seed
+
 echo "🚀 Starting NestJS..."
 exec "$@"

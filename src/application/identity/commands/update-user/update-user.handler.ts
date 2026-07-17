@@ -59,6 +59,7 @@ export class UpdateUserHandler implements ICommandHandler<UpdateUserCommand> {
       roleId: payload.role?.id ?? undefined,
       provider: payload.provider,
       socialId: payload.socialId ?? undefined,
+      phone: payload.phone,
     });
   }
 }

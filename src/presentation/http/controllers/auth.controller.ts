@@ -8,10 +8,14 @@ import {
   UseGuards,
   Patch,
   Delete,
+  UploadedFile,
   SerializeOptions,
   Req,
   Res,
   UnprocessableEntityException,
+  ParseFilePipe,
+  FileTypeValidator,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
@@ -19,6 +23,8 @@ import { CurrentUser } from '@/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/infrastructure/strategies/jwt.strategy';
 import type { JwtRefreshPayloadType } from '@/infrastructure/config/jwt-refresh-payload.type';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { RegisterCommand } from '@/application/identity/commands/register';
 import {
   ConfirmEmailCommand,
@@ -29,6 +35,7 @@ import { ResetPasswordCommand } from '@/application/identity/commands/reset-pass
 import { RefreshTokenCommand } from '@/application/identity/commands/refresh-token';
 import { LogoutCommand } from '@/application/identity/commands/logout';
 import { UpdateUserCommand } from '@/application/identity/commands/update-user';
+import { UploadAvatarCommand } from '@/application/identity/commands/upload-avatar';
 import { DeleteUserCommand } from '@/application/identity/commands/delete-user';
 import { GetMeQuery } from '@/application/identity/queries/get-me';
 import { AuthLoginCommand } from '@/application/identity/commands/login';
@@ -48,6 +55,9 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
   ApiBody,
+  ApiConsumes,
+  ApiPayloadTooLargeResponse,
+  ApiServiceUnavailableResponse,
 } from '@nestjs/swagger';
 import { AuthForgotPasswordDto } from '../dtos/auth-forgot-password.dto';
 import { AuthConfirmEmailDto } from '../dtos/auth-confirm-email.dto';
@@ -216,7 +226,7 @@ export class AuthController {
         new GoogleLoginCommand(req.user),
       );
       setAuthCookies(res, result, this.configService);
-      redirectUrl.pathname = '/';
+      redirectUrl.pathname = '/profile';
     } catch (error: unknown) {
       const validationError = getValidationErrorCode(error);
       redirectUrl.searchParams.set(
@@ -247,6 +257,59 @@ export class AuthController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<NullableType<User>> {
     return this.queryBus.execute(new GetMeQuery(user.id));
+  }
+
+  @ApiCookieAuth(ACCESS_TOKEN_COOKIE)
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Post('me/avatar')
+  @UseGuards(AuthGuard('jwt'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({ summary: 'Upload current user avatar' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: UserDto,
+    description: 'Avatar uploaded successfully',
+  })
+  @ApiBadRequestResponse({
+    description: 'A JPEG or PNG avatar file is required',
+  })
+  @ApiPayloadTooLargeResponse({ description: 'Avatar must not exceed 2 MiB' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiServiceUnavailableResponse({ description: 'Avatar storage unavailable' })
+  @HttpCode(HttpStatus.OK)
+  public uploadAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new FileTypeValidator({ fileType: /^image\/(jpeg|png)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ): Promise<User> {
+    return this.commandBus.execute(
+      new UploadAvatarCommand(user.id, file.buffer),
+    );
   }
 
   @ApiCookieAuth(REFRESH_TOKEN_COOKIE)

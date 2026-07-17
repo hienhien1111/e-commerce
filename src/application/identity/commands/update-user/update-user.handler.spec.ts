@@ -104,6 +104,26 @@ describe('UpdateUserHandler', () => {
         roleId: undefined,
         provider: undefined,
         socialId: undefined,
+        phone: undefined,
+      });
+    });
+
+    it('should update the phone number, including clearing it', async () => {
+      const command = new UpdateUserCommand('user-123', {
+        phone: null,
+      });
+
+      await handler.execute(command);
+
+      expect(userRepository.update).toHaveBeenCalledWith('user-123', {
+        firstName: undefined,
+        lastName: undefined,
+        email: undefined,
+        password: undefined,
+        roleId: undefined,
+        provider: undefined,
+        socialId: undefined,
+        phone: null,
       });
     });
   });
