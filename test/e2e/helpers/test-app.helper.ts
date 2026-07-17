@@ -11,7 +11,7 @@ import { AppModule } from '@/app.module';
 import validationOptions from '@/utils/validation-options';
 import { ResolvePromisesInterceptor } from '@/utils/serializer.interceptor';
 import { SerializeToJSONInterceptor } from '@/utils/serialize-to-json.interceptor';
-import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
 import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
 import { InMemoryFileStorage } from './in-memory-file-storage';
 import { InMemoryEmail } from './in-memory-email';

@@ -71,7 +71,7 @@ import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.rep
 import { SESSION_REPOSITORY_PORT } from '@/application/identity/ports/session/session.repository.port.token';
 import { WEBAUTHN_CREDENTIAL_REPOSITORY_PORT } from '@/application/identity/ports/webauthn/webauthn-credential.repository.port.token';
 import { CHALLENGE_STORE_PORT } from '@/application/identity/ports/webauthn/challenge-store.port.token';
-import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
 import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
 import { AuthEmailService } from '@/application/identity/services/auth-email.service';
 import { AuthEmailTokenService } from '@/application/identity/services/auth-email-token.service';

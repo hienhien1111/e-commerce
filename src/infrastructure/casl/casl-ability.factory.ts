@@ -19,7 +19,7 @@ import { PermissionSubjectEnum } from '@/domain/enums/permission-subject.enum';
  * `WhereInput` for SQL-level filtering).
  */
 export type AppSubjects =
-  | 'all'
+  | PermissionSubjectEnum
   | Subjects<{
       User: PrismaUser;
       Role: PrismaRole;

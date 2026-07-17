@@ -18,6 +18,7 @@ import { PrismaModule } from './infrastructure/persistence/prisma/prisma.module'
 import { HealthModule } from './health/health.module';
 import { IdentityModule } from './application/identity/identity.module';
 import { AuthorizationModule } from './application/authorization/authorization.module';
+import { CatalogModule } from './application/catalog/catalog.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { AuthorizationModule } from './application/authorization/authorization.m
     HealthModule,
     IdentityModule,
     AuthorizationModule,
+    CatalogModule,
   ],
   providers: [
     {

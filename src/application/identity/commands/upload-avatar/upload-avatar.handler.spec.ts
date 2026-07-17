@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UploadAvatarHandler } from './upload-avatar.handler';
 import { UploadAvatarCommand } from './upload-avatar.command';
 import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.repository.port.token';
-import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
 import { User } from '@/domain/entities/user';
 
 describe('UploadAvatarHandler', () => {
