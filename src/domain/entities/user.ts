@@ -12,6 +12,7 @@ export interface UserEssentialProps {
   phone?: string | null;
   avatarUrl?: string | null;
   avatarPublicId?: string | null;
+  verifiedAt?: Date | null;
 }
 
 type UserRoleProps = {
@@ -96,6 +97,10 @@ export class User extends BaseDomainModel<UserInternalProps> {
     return this.props.avatarPublicId ?? null;
   }
 
+  get verifiedAt(): Date | null {
+    return this.props.verifiedAt ?? null;
+  }
+
   get role(): UserRoleProps['role'] {
     return this.props.role;
   }
@@ -141,6 +146,13 @@ export class User extends BaseDomainModel<UserInternalProps> {
     this.touch();
   }
 
+  confirmEmail(): void {
+    if (!this.props.verifiedAt) {
+      this.props.verifiedAt = new Date();
+      this.touch();
+    }
+  }
+
   assignRole(role: NonNullable<UserRoleProps['role']>): void {
     this.props.role = role;
     this.props.roleId = role.id;
@@ -168,6 +180,7 @@ export class User extends BaseDomainModel<UserInternalProps> {
       lastName: this.lastName,
       phone: this.phone,
       avatarUrl: this.avatarUrl,
+      verifiedAt: this.verifiedAt,
       role: this.role ? this.role.toJSON() : null,
       deletedAt: this.deletedAt,
     };

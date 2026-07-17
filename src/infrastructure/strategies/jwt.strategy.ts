@@ -7,6 +7,8 @@ import { JwtPayloadType } from '@/application/identity/types/jwt-payload.type';
 import { AllConfigType } from '@/config/config.type';
 import type { UserRepositoryPort } from '@/application/identity/ports/user/user.repository.port';
 import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.repository.port.token';
+import type { SessionRepositoryPort } from '@/application/identity/ports/session/session.repository.port';
+import { SESSION_REPOSITORY_PORT } from '@/application/identity/ports/session/session.repository.port.token';
 import { User } from '@/domain/entities/user';
 import { ACCESS_TOKEN_COOKIE } from '@/infrastructure/auth/auth-cookie.constants';
 import { extractCookieToken } from './cookie-token.extractor';
@@ -24,6 +26,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     configService: ConfigService<AllConfigType>,
     @Inject(USER_REPOSITORY_PORT)
     private readonly userRepository: UserRepositoryPort,
+    @Inject(SESSION_REPOSITORY_PORT)
+    private readonly sessionRepository: SessionRepositoryPort,
   ) {
     const accessPublicKey = configService
       .getOrThrow('auth.accessPublicKey', { infer: true })
@@ -46,6 +50,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const user = await this.userRepository.findById(payload.id);
 
     if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    const session = await this.sessionRepository.findById(payload.sessionId);
+    if (!session || session.user.id !== user.id) {
       throw new UnauthorizedException();
     }
 

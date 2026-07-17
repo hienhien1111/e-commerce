@@ -20,6 +20,7 @@ export class CreateUserWithRoleIdStrategy
         phone: input.phone ?? null,
         avatarUrl: input.avatarUrl ?? null,
         avatarPublicId: input.avatarPublicId ?? null,
+        verifiedAt: input.verifiedAt ?? null,
         role: null,
         roleId: input.roleId,
       },

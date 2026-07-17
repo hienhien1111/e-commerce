@@ -122,6 +122,7 @@ describe('GoogleLoginHandler', () => {
         provider: AuthProvidersEnum.GOOGLE,
         socialId: profile.socialId,
         role: expect.any(Object),
+        verifiedAt: expect.any(Date),
       });
       expect(sessionRepository.create).toHaveBeenCalled();
     });

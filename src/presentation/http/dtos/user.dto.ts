@@ -62,6 +62,13 @@ export class UserDto {
 
   @Allow()
   @ApiPropertyOptional({
+    type: Date,
+    nullable: true,
+  })
+  verifiedAt?: Date | null;
+
+  @Allow()
+  @ApiPropertyOptional({
     type: RoleDto,
     nullable: true,
   })

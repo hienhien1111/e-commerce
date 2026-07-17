@@ -76,6 +76,7 @@ export class GoogleLoginHandler implements ICommandHandler<GoogleLoginCommand> {
         provider: AuthProvidersEnum.GOOGLE,
         socialId: profile.socialId,
         role: defaultRole,
+        verifiedAt: new Date(),
       });
     }
 

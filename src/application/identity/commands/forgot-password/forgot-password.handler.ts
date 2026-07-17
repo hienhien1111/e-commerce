@@ -1,16 +1,11 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import {
-  HttpStatus,
-  Inject,
-  UnprocessableEntityException,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { Inject } from '@nestjs/common';
 import { ForgotPasswordCommand } from './forgot-password.command';
 import { ForgotPasswordResult } from './forgot-password.result';
-import { AllConfigType } from '@/config/config.type';
 import type { UserRepositoryPort } from '../../ports/user/user.repository.port';
 import { USER_REPOSITORY_PORT } from '../../ports/user/user.repository.port.token';
+import { AuthProvidersEnum } from '@/domain/enums/auth-providers.enum';
+import { AuthEmailService } from '@/application/identity/services/auth-email.service';
 
 @CommandHandler(ForgotPasswordCommand)
 export class ForgotPasswordHandler
@@ -19,37 +14,19 @@ export class ForgotPasswordHandler
   constructor(
     @Inject(USER_REPOSITORY_PORT)
     private readonly userRepository: UserRepositoryPort,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService<AllConfigType>,
+    private readonly authEmailService: AuthEmailService,
   ) {}
 
   async execute(command: ForgotPasswordCommand): Promise<ForgotPasswordResult> {
     const { email } = command;
     const user = await this.userRepository.findByEmail(email);
 
-    if (!user) {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          email: 'emailNotExists',
-        },
-      });
+    if (user && user.provider === AuthProvidersEnum.EMAIL && user.email) {
+      try {
+        await this.authEmailService.sendPasswordReset(user.id, user.email);
+      } catch {
+        // Keep the public response generic to prevent account enumeration.
+      }
     }
-
-    const tokenExpiresIn = this.configService.getOrThrow('auth.forgotExpires', {
-      infer: true,
-    });
-
-    await this.jwtService.signAsync(
-      {
-        forgotUserId: user.id,
-      },
-      {
-        secret: this.configService.getOrThrow('auth.forgotSecret', {
-          infer: true,
-        }),
-        expiresIn: tokenExpiresIn,
-      },
-    );
   }
 }

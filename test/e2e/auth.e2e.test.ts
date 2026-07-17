@@ -4,12 +4,15 @@ import request from 'supertest';
 import { createTestApp } from './helpers/test-app.helper';
 import { cleanDatabase } from './helpers/db.helper';
 import {
+  confirmUserEmail,
   loginUser,
   registerUser,
   type RegisterPayload,
 } from './helpers/auth.helper';
 import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
 import { InMemoryFileStorage } from './helpers/in-memory-file-storage';
+import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
+import { InMemoryEmail } from './helpers/in-memory-email';
 
 const createUser = (prefix: string): RegisterPayload => ({
   email: `${prefix}-${randomUUID()}@example.com`,
@@ -66,14 +69,33 @@ describe('Auth E2E', () => {
   });
 
   describe('POST /api/v1/email/login', () => {
-    const user = createUser('login');
+    const verifiedUser = createUser('verified-login');
+    const unverifiedUser = createUser('unverified-login');
 
     beforeAll(async () => {
-      await registerUser(app, user);
+      await registerUser(app, verifiedUser);
+      await confirmUserEmail(app, verifiedUser.email);
+      await registerUser(app, unverifiedUser);
+    });
+
+    it('422 — blocks an unverified email/password account', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/email/login')
+        .send({
+          email: unverifiedUser.email,
+          password: unverifiedUser.password,
+        })
+        .expect(422);
+
+      expect(response.body.errors.email).toBe('emailNotVerified');
     });
 
     it('200 — sets HttpOnly session cookies for valid credentials', async () => {
-      const cookies = await loginUser(app, user.email, user.password);
+      const cookies = await loginUser(
+        app,
+        verifiedUser.email,
+        verifiedUser.password,
+      );
 
       expect(cookies.access).toStartWith('access_token=');
       expect(cookies.refresh).toStartWith('refresh_token=');
@@ -82,7 +104,7 @@ describe('Auth E2E', () => {
     it('422 — rejects a wrong password', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/email/login')
-        .send({ email: user.email, password: 'wrong-password' })
+        .send({ email: verifiedUser.email, password: 'wrong-password' })
         .expect(422);
     });
 
@@ -107,6 +129,7 @@ describe('Auth E2E', () => {
 
     beforeAll(async () => {
       await registerUser(app, user);
+      await confirmUserEmail(app, user.email);
       ({ access: accessCookie } = await loginUser(
         app,
         user.email,
@@ -142,6 +165,7 @@ describe('Auth E2E', () => {
 
     beforeAll(async () => {
       await registerUser(app, user);
+      await confirmUserEmail(app, user.email);
       ({ access: accessCookie } = await loginUser(
         app,
         user.email,
@@ -184,6 +208,16 @@ describe('Auth E2E', () => {
 
       expect(response.body.phone).toBeNull();
     });
+
+    it('does not allow PATCH /me to change an email directly', async () => {
+      const response = await request(app.getHttpServer())
+        .patch('/api/v1/me')
+        .set('Cookie', accessCookie)
+        .send({ email: 'bypass@example.com' })
+        .expect(200);
+
+      expect(response.body.email).toBe(user.email);
+    });
   });
 
   describe('POST /api/v1/me/avatar', () => {
@@ -193,6 +227,7 @@ describe('Auth E2E', () => {
 
     beforeAll(async () => {
       await registerUser(app, user);
+      await confirmUserEmail(app, user.email);
       ({ access: accessCookie } = await loginUser(
         app,
         user.email,
@@ -255,6 +290,17 @@ describe('Auth E2E', () => {
       expect(fileStorage.uploads.at(-1)?.folder).toMatch(/^avatars\//);
     });
 
+    it('200 — accepts a JPEG avatar', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/me/avatar')
+        .set('Cookie', accessCookie)
+        .attach('file', pngFile, {
+          filename: 'avatar.jpeg',
+          contentType: 'image/jpeg',
+        })
+        .expect(200);
+    });
+
     it('200 — replaces the avatar and deletes the old storage asset', async () => {
       const previousAvatar = fileStorage.uploads.at(-1)?.file;
       expect(previousAvatar).toBeDefined();
@@ -277,6 +323,7 @@ describe('Auth E2E', () => {
 
     beforeAll(async () => {
       await registerUser(app, user);
+      await confirmUserEmail(app, user.email);
     });
 
     it('204 — rotates the session cookies', async () => {
@@ -307,6 +354,7 @@ describe('Auth E2E', () => {
 
     beforeAll(async () => {
       await registerUser(app, user);
+      await confirmUserEmail(app, user.email);
     });
 
     it('204 — logs out an authenticated session', async () => {
@@ -327,6 +375,99 @@ describe('Auth E2E', () => {
 
     it('401 — requires an access cookie', async () => {
       await request(app.getHttpServer()).post('/api/v1/logout').expect(401);
+    });
+  });
+
+  describe('email lifecycle', () => {
+    it('sends verification email and rejects a token with the wrong purpose', async () => {
+      const user = createUser('verification-link');
+      const mailbox = app.get<InMemoryEmail>(EMAIL_PORT);
+
+      await registerUser(app, user);
+      const verificationToken = mailbox.latestTokenFor(user.email);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/reset/password')
+        .send({ hash: verificationToken, password: 'Changed@1234' })
+        .expect(422);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/email/confirm')
+        .send({ hash: verificationToken })
+        .expect(204);
+      await loginUser(app, user.email, user.password);
+    });
+
+    it('always acknowledges unknown email resend and reset requests', async () => {
+      const unknownEmail = createUser('unknown-email').email;
+
+      await request(app.getHttpServer())
+        .post('/api/v1/email/confirm/resend')
+        .send({ email: unknownEmail })
+        .expect(204);
+      await request(app.getHttpServer())
+        .post('/api/v1/forgot/password')
+        .send({ email: unknownEmail })
+        .expect(204);
+    });
+
+    it('resets a password and revokes both existing session cookies', async () => {
+      const user = createUser('password-reset');
+      const mailbox = app.get<InMemoryEmail>(EMAIL_PORT);
+      await registerUser(app, user);
+      await confirmUserEmail(app, user.email);
+      const cookies = await loginUser(app, user.email, user.password);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/forgot/password')
+        .send({ email: user.email })
+        .expect(204);
+      await request(app.getHttpServer())
+        .post('/api/v1/reset/password')
+        .send({
+          hash: mailbox.latestTokenFor(user.email),
+          password: 'NewPassword@123',
+        })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get('/api/v1/me')
+        .set('Cookie', cookies.access)
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/api/v1/refresh')
+        .set('Cookie', cookies.refresh)
+        .expect(401);
+      await loginUser(app, user.email, 'NewPassword@123');
+    });
+
+    it('confirms an email change then requires login again', async () => {
+      const user = createUser('email-change');
+      const newEmail = `changed-${randomUUID()}@example.com`;
+      const mailbox = app.get<InMemoryEmail>(EMAIL_PORT);
+      await registerUser(app, user);
+      await confirmUserEmail(app, user.email);
+      const cookies = await loginUser(app, user.email, user.password);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/me/email-change')
+        .set('Cookie', cookies.access)
+        .send({ email: newEmail, currentPassword: user.password })
+        .expect(204);
+      await request(app.getHttpServer())
+        .post('/api/v1/email/confirm/new')
+        .send({ hash: mailbox.latestTokenFor(newEmail) })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get('/api/v1/me')
+        .set('Cookie', cookies.access)
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/api/v1/refresh')
+        .set('Cookie', cookies.refresh)
+        .expect(401);
+      await loginUser(app, newEmail, user.password);
     });
   });
 });

@@ -74,6 +74,12 @@ AUTH_FORGOT_TOKEN_EXPIRES_IN=1h
 AUTH_CONFIRM_EMAIL_SECRET=${CONFIRM_SECRET}
 AUTH_CONFIRM_EMAIL_TOKEN_EXPIRES_IN=1d
 
+# Transactional email (Resend). Fill RESEND_API_KEY to enable delivery.
+# Development/test can use Shop <onboarding@resend.dev>; production must use
+# a sender from a verified Resend domain.
+RESEND_API_KEY=
+RESEND_FROM=Shop <onboarding@resend.dev>
+
 # RSA Keys (auto-generated)
 ACCESS_JWT_PRIVATE_KEY="${ACCESS_PRIVATE_LINE}"
 ACCESS_JWT_PUBLIC_KEY="${ACCESS_PUBLIC_LINE}"
@@ -117,6 +123,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Fill GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET"
 echo "  2. Fill CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET"
-echo "  3. Fill MOMO_ACCESS_KEY / MOMO_SECRET_KEY"
-echo "  4. Optional: Fill NGROK_AUTHTOKEN for OAuth + MoMo IPN tunneling"
-echo "  5. Run: make up"
+echo "  3. Fill RESEND_API_KEY to test transactional email"
+echo "  4. Fill MOMO_ACCESS_KEY / MOMO_SECRET_KEY"
+echo "  5. Optional: Fill NGROK_AUTHTOKEN for OAuth + MoMo IPN tunneling"
+echo "  6. Run: make up"

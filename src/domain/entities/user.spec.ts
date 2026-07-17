@@ -47,4 +47,22 @@ describe('User', () => {
 
     expect(user.phone).toBeNull();
   });
+
+  it('tracks email verification without exposing storage internals', () => {
+    const user = UserFactory.create({
+      email: 'user@example.com',
+      password: 'hashed-password',
+      provider: AuthProvidersEnum.EMAIL,
+      socialId: null,
+      firstName: 'Jane',
+      lastName: 'Doe',
+      role: null,
+    });
+
+    expect(user.verifiedAt).toBeNull();
+    user.confirmEmail();
+
+    expect(user.verifiedAt).toBeInstanceOf(Date);
+    expect(user.toJSON()).toMatchObject({ verifiedAt: user.verifiedAt });
+  });
 });

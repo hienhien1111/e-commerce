@@ -55,6 +55,10 @@ export const envSchema = z.object({
   AUTH_CONFIRM_EMAIL_SECRET: z.string().min(32),
   AUTH_CONFIRM_EMAIL_TOKEN_EXPIRES_IN: z.string().default('1d'),
 
+  // Transactional email (Resend)
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM: z.string().optional(),
+
   ACCESS_JWT_PRIVATE_KEY: z.string().min(1, 'ACCESS_JWT_PRIVATE_KEY required'),
   ACCESS_JWT_PUBLIC_KEY: z.string().min(1, 'ACCESS_JWT_PUBLIC_KEY required'),
   REFRESH_JWT_PRIVATE_KEY: z

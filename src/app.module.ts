@@ -9,6 +9,7 @@ import appConfig from './config/app.config';
 import googleOAuthConfig from './infrastructure/config/google-oauth.config';
 import cloudinaryConfig from './infrastructure/config/cloudinary.config';
 import momoConfig from './infrastructure/config/momo.config';
+import resendConfig from './infrastructure/config/resend.config';
 import type { AllConfigType } from './config/config.type';
 
 import { LoggerModule } from './infrastructure/logger/logger.module';
@@ -29,6 +30,7 @@ import { AuthorizationModule } from './application/authorization/authorization.m
         googleOAuthConfig,
         cloudinaryConfig,
         momoConfig,
+        resendConfig,
       ],
       envFilePath: ['.env'],
     }),

@@ -63,6 +63,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
         phone: persistence.phone,
         avatarUrl: persistence.avatarUrl,
         avatarPublicId: persistence.avatarPublicId,
+        verifiedAt: persistence.verifiedAt,
         createdAt: persistence.createdAt,
         updatedAt: persistence.updatedAt,
         deletedAt: persistence.deletedAt,
@@ -228,6 +229,9 @@ export class PrismaUserRepository implements UserRepositoryPort {
           : payload.avatarPublicId,
       );
     }
+    if (payload.verifiedAt !== undefined && payload.verifiedAt !== null) {
+      domainEntity.confirmEmail();
+    }
     if (payload.role !== undefined) {
       if (payload.role === null) {
         domainEntity.clearRole();
@@ -252,6 +256,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
         phone: persistence.phone,
         avatarUrl: persistence.avatarUrl,
         avatarPublicId: persistence.avatarPublicId,
+        verifiedAt: persistence.verifiedAt,
         updatedAt: persistence.updatedAt,
         deletedAt: persistence.deletedAt,
         ...(roleChanged

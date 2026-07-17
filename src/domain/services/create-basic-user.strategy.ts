@@ -15,6 +15,7 @@ export class CreateBasicUserStrategy
         phone: input.phone ?? null,
         avatarUrl: input.avatarUrl ?? null,
         avatarPublicId: input.avatarPublicId ?? null,
+        verifiedAt: input.verifiedAt ?? null,
         roleId: input.role ? input.role.id : null,
       },
       generateUuidV7(),
