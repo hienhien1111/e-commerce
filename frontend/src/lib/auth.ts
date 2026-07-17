@@ -5,10 +5,12 @@
 export interface AuthUser {
   id: string;
   email: string | null;
+  provider: string;
   firstName: string | null;
   lastName: string | null;
   phone: string | null;
   avatarUrl: string | null;
+  verifiedAt: string | null;
   role: { name: string } | null;
 }
 

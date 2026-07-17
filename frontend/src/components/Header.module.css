@@ -36,6 +36,49 @@
   color: var(--color-primary);
 }
 
+.accountLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar,
+.initial {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.logoutButton {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.logoutButton:hover {
+  color: var(--color-primary);
+}
+
 @media (max-width: 480px) {
   .navigation {
     gap: var(--space-3);

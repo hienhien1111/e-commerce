@@ -27,9 +27,13 @@ function getInitials(user: ProfileUser): string {
   return (name || user.email || 'U').slice(0, 1).toUpperCase();
 }
 
-function getRequestError(error: unknown, fallback: string): string {
+function getRequestError(
+  error: unknown,
+  fallback: string,
+  field = 'phone',
+): string {
   if (error instanceof ApiError) {
-    return getValidationError(error, 'phone') ?? fallback;
+    return getValidationError(error, field) ?? fallback;
   }
 
   return fallback;
@@ -48,6 +52,13 @@ function ProfileContent() {
   const [profileError, setProfileError] = useState('');
   const [avatarError, setAvatarError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const [newEmail, setNewEmail] = useState(profile?.email ?? '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [changingEmail, setChangingEmail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const previewObjectUrl = useRef<string | null>(null);
@@ -59,6 +70,27 @@ function ProfileContent() {
     setFirstName(updatedProfile.firstName ?? '');
     setLastName(updatedProfile.lastName ?? '');
     setPhone(updatedProfile.phone ?? '');
+    setNewEmail(updatedProfile.email ?? '');
+  };
+
+  const handleResendVerification = async () => {
+    if (!profile?.email) return;
+    setResendingVerification(true);
+    setVerificationMessage('');
+    try {
+      await api.post<void>(
+        'v1/email/confirm/resend',
+        { email: profile.email },
+        { skipAuth: true },
+      );
+      setVerificationMessage(
+        'Nếu tài khoản cần xác nhận, email mới đã được gửi.',
+      );
+    } catch {
+      setVerificationMessage('Không thể gửi email lúc này. Vui lòng thử lại.');
+    } finally {
+      setResendingVerification(false);
+    }
   };
 
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -89,6 +121,32 @@ function ProfileContent() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEmailChange = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setEmailError('');
+    setEmailMessage('');
+    if (!newEmail || !currentPassword) {
+      setEmailError('Nhập email mới và mật khẩu hiện tại.');
+      return;
+    }
+
+    setChangingEmail(true);
+    try {
+      await api.post<void>('v1/me/email-change', {
+        email: newEmail.trim(),
+        currentPassword,
+      });
+      setCurrentPassword('');
+      setEmailMessage('Chúng tôi đã gửi liên kết xác nhận đến email mới.');
+    } catch (error: unknown) {
+      setEmailError(
+        getRequestError(error, 'Không thể yêu cầu đổi email.', 'email'),
+      );
+    } finally {
+      setChangingEmail(false);
     }
   };
 
@@ -192,6 +250,24 @@ function ProfileContent() {
                 readOnly
                 aria-readonly="true"
               />
+              {profile.verifiedAt ? (
+                <p className={styles.verified}>Email đã được xác nhận.</p>
+              ) : (
+                <div className={styles.verificationAction}>
+                  <span>Email chưa được xác nhận.</span>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={handleResendVerification}
+                    disabled={resendingVerification}
+                  >
+                    {resendingVerification ? 'Đang gửi...' : 'Gửi lại email'}
+                  </button>
+                </div>
+              )}
+              {verificationMessage && (
+                <p className={styles.emailMessage}>{verificationMessage}</p>
+              )}
             </div>
 
             <div className={styles.nameFields}>
@@ -245,6 +321,59 @@ function ProfileContent() {
               {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
             </button>
           </form>
+
+          <section className={`${styles.form} ${styles.emailChangeForm}`}>
+            <h2>Đổi địa chỉ email</h2>
+            {profile.provider === 'email' ? (
+              <form onSubmit={handleEmailChange}>
+                <p className={styles.sectionHint}>
+                  Email mới chỉ được áp dụng sau khi bạn xác nhận qua liên kết
+                  gửi đến địa chỉ đó.
+                </p>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="new-email">
+                    Email mới
+                  </label>
+                  <input
+                    id="new-email"
+                    className="form-input"
+                    type="email"
+                    value={newEmail}
+                    onChange={(event) => setNewEmail(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="current-password">
+                    Mật khẩu hiện tại
+                  </label>
+                  <input
+                    id="current-password"
+                    className="form-input"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    required
+                  />
+                </div>
+                {emailError && <p className="form-error">{emailError}</p>}
+                {emailMessage && (
+                  <p className={styles.emailMessage}>{emailMessage}</p>
+                )}
+                <button
+                  className={`btn btn-outline ${styles.saveButton}`}
+                  type="submit"
+                  disabled={changingEmail}
+                >
+                  {changingEmail ? 'Đang gửi...' : 'Xác nhận đổi email'}
+                </button>
+              </form>
+            ) : (
+              <p className={styles.sectionHint}>
+                Tài khoản Google quản lý địa chỉ email qua Google.
+              </p>
+            )}
+          </section>
         </div>
       </section>
     </main>
