@@ -1,0 +1,36 @@
+.layer { inset: 0; position: fixed; z-index: 50; }
+.backdrop { background: rgba(0, 0, 0, .35); height: 100%; inset: 0; position: absolute; width: 100%; }
+.sidebar { background: #fff; box-shadow: var(--shadow-modal); display: flex; flex-direction: column; height: 100%; max-width: 460px; padding: var(--space-5); position: absolute; right: 0; top: 0; width: min(100%, 460px); }
+.header { align-items: center; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; padding-bottom: var(--space-4); }
+.header h2 { font-size: 18px; }
+.close { color: var(--color-text-secondary); font-size: 28px; line-height: 1; }
+.error, .warning, .checkoutWarning { color: var(--color-error); font-size: 12px; }
+.error { margin-top: var(--space-3); }
+.empty { color: var(--color-text-secondary); padding: var(--space-8) 0; text-align: center; }
+.items { flex: 1; list-style: none; overflow-y: auto; }
+.item { border-bottom: 1px solid var(--color-border-light); display: flex; gap: var(--space-3); padding: var(--space-4) 0; }
+.image { align-items: center; background: #fafafa; display: flex; flex: 0 0 70px; height: 70px; justify-content: center; overflow: hidden; }
+.image img { height: 100%; object-fit: cover; width: 100%; }
+.itemInfo { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.itemInfo strong { font-size: 13px; line-height: 1.35; }
+.price { color: var(--color-price); }
+.itemActions { align-items: center; display: flex; justify-content: space-between; margin-top: auto; }
+.stepper { display: flex; }
+.stepper button, .stepper output { border: 1px solid var(--color-border); display: grid; height: 27px; place-items: center; width: 27px; }
+.stepper output { border-left: 0; border-right: 0; }
+.remove, .couponApplied button, .couponInvalid button { color: var(--color-primary); font-size: 12px; }
+.coupon { border-top: 1px solid var(--color-border); padding: var(--space-4) 0; }
+.coupon label { display: block; font-weight: 600; margin-bottom: var(--space-2); }
+.couponInput { display: flex; gap: var(--space-2); }
+.couponInput input { border: 1px solid var(--color-border); flex: 1; min-width: 0; padding: 8px; }
+.couponInput button { white-space: nowrap; }
+.couponApplied, .couponInvalid { align-items: center; display: flex; font-size: 12px; justify-content: space-between; }
+.couponApplied { color: var(--color-success); }
+.couponInvalid { color: var(--color-error); }
+.totals { border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
+.totals div { display: flex; justify-content: space-between; margin-bottom: var(--space-2); }
+.totals dt { color: var(--color-text-secondary); }
+.totals dd { font-weight: 500; }
+.totals .total { color: var(--color-price); font-size: 17px; margin-top: var(--space-3); }
+.checkoutWarning { margin-top: var(--space-2); }
+.footer { display: flex; gap: var(--space-3); justify-content: space-between; margin-top: var(--space-4); }

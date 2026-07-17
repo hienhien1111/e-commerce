@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { auth, type AuthUser } from '@/lib/auth';
+import { CartIcon } from '@/components/cart/CartIcon';
 import styles from './Header.module.css';
 
 export function Header() {
@@ -69,6 +70,7 @@ export function Header() {
 
         <nav className={styles.navigation} aria-label="Điều hướng chính">
           <Link href="/">Trang chủ</Link>
+          <CartIcon />
           {user ? (
             <>
               <Link href="/profile" className={styles.accountLink}>
