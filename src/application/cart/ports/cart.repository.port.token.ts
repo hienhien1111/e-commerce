@@ -1,0 +1,1 @@
+export const CART_REPOSITORY_PORT = Symbol('CART_REPOSITORY_PORT');
