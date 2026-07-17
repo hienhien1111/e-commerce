@@ -1,0 +1,40 @@
+# Production override. Run with:
+# docker compose -f docker-compose.yaml -f docker-compose.production.yaml up -d --build
+services:
+  release:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: release
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-shop}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - shop-network
+    restart: 'no'
+
+  api:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+    volumes: !reset []
+    ports: !reset
+      - '${APP_PORT:-3002}:${APP_PORT:-3002}'
+    depends_on:
+      release:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      target: production
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002/api}
+    environment:
+      NODE_ENV: production
+    volumes: !reset []
