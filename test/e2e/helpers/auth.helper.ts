@@ -2,6 +2,8 @@ import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
 import { InMemoryEmail } from './in-memory-email';
+import { PrismaService } from '@/infrastructure/persistence/prisma/prisma.service';
+import { RoleEnum } from '@/domain/enums/role.enum';
 
 export interface TestAuthCookies {
   access: string;
@@ -80,5 +82,26 @@ export async function registerAndLogin(
 ): Promise<TestAuthCookies> {
   await registerUser(app, payload);
   await confirmUserEmail(app, payload.email);
+  return loginUser(app, payload.email, payload.password);
+}
+
+/** Register a verified account and grant it the seeded ADMIN role. */
+export async function registerAdmin(
+  app: INestApplication,
+  payload: RegisterPayload,
+): Promise<TestAuthCookies> {
+  await registerUser(app, payload);
+  await confirmUserEmail(app, payload.email);
+  const prisma = app.get(PrismaService);
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { email: payload.email },
+  });
+  const adminRole = await prisma.role.findUniqueOrThrow({
+    where: { name: RoleEnum.ADMIN },
+  });
+  await prisma.userRole.deleteMany({ where: { userId: user.id } });
+  await prisma.userRole.create({
+    data: { userId: user.id, roleId: adminRole.id },
+  });
   return loginUser(app, payload.email, payload.password);
 }
