@@ -6,19 +6,24 @@ import { PrismaPaymentRepository } from '@/infrastructure/persistence/repositori
 import { MomoPaymentGateway } from '@/infrastructure/providers/momo-payment.gateway';
 import { PAYMENT_REPOSITORY_PORT } from '@/application/payment/ports/payment.repository.port.token';
 import { PAYMENT_GATEWAY_PORT } from '@/application/payment/ports/payment.gateway.port.token';
+import { PAYMENT_SETTLEMENT_PORT } from '@/application/payment/ports/payment-settlement.port.token';
 import { InitiatePaymentHandler } from '@/application/payment/commands/initiate-payment';
+import { SettleMomoWebhookHandler } from '@/application/payment/commands/settle-momo-webhook';
 import { GetPaymentForOrderHandler } from '@/application/payment/queries/get-payment-for-order';
 import { PaymentController } from '@/presentation/http/controllers/payment.controller';
+import { MomoWebhookController } from '@/presentation/http/controllers/momo-webhook.controller';
 
 @Module({
   imports: [CqrsModule, PrismaModule, OrderModule],
-  controllers: [PaymentController],
+  controllers: [PaymentController, MomoWebhookController],
   providers: [
     PrismaPaymentRepository,
     MomoPaymentGateway,
     InitiatePaymentHandler,
+    SettleMomoWebhookHandler,
     GetPaymentForOrderHandler,
     { provide: PAYMENT_REPOSITORY_PORT, useExisting: PrismaPaymentRepository },
+    { provide: PAYMENT_SETTLEMENT_PORT, useExisting: PrismaPaymentRepository },
     { provide: PAYMENT_GATEWAY_PORT, useExisting: MomoPaymentGateway },
   ],
   exports: [PAYMENT_GATEWAY_PORT],
