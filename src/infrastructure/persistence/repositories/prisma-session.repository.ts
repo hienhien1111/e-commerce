@@ -35,8 +35,8 @@ export class PrismaSessionRepository implements SessionRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: Session['id']): Promise<NullableType<Session>> {
-    const row = await this.prisma.session.findUnique({
-      where: { id },
+    const row = await this.prisma.session.findFirst({
+      where: { id, deletedAt: null },
       include: SESSION_WITH_USER_INCLUDE,
     });
 

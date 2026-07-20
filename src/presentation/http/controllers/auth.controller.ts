@@ -36,6 +36,8 @@ import { RefreshTokenCommand } from '@/application/identity/commands/refresh-tok
 import { LogoutCommand } from '@/application/identity/commands/logout';
 import { UpdateUserCommand } from '@/application/identity/commands/update-user';
 import { UploadAvatarCommand } from '@/application/identity/commands/upload-avatar';
+import { ResendConfirmationCommand } from '@/application/identity/commands/resend-confirmation';
+import { RequestEmailChangeCommand } from '@/application/identity/commands/request-email-change';
 import { DeleteUserCommand } from '@/application/identity/commands/delete-user';
 import { GetMeQuery } from '@/application/identity/queries/get-me';
 import { AuthLoginCommand } from '@/application/identity/commands/login';
@@ -63,6 +65,7 @@ import { AuthForgotPasswordDto } from '../dtos/auth-forgot-password.dto';
 import { AuthConfirmEmailDto } from '../dtos/auth-confirm-email.dto';
 import { AuthResetPasswordDto } from '../dtos/auth-reset-password.dto';
 import { AuthUpdateDto } from '../dtos/auth-update.dto';
+import { AuthEmailChangeDto } from '../dtos/auth-email-change.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthRegisterLoginDto } from '../dtos/auth-register-login.dto';
 import { AuthLoginDto } from '../dtos/auth-login.dto';
@@ -169,6 +172,18 @@ export class AuthController {
   ): Promise<void> {
     return this.commandBus.execute(
       new ConfirmNewEmailCommand(confirmEmailDto.hash),
+    );
+  }
+
+  @Post('email/confirm/resend')
+  @ApiOperation({ summary: 'Resend email confirmation link' })
+  @ApiNoContentResponse({ description: 'Confirmation email requested' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resendConfirmation(
+    @Body() forgotPasswordDto: AuthForgotPasswordDto,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new ResendConfirmationCommand(forgotPasswordDto.email),
     );
   }
 
@@ -364,6 +379,25 @@ export class AuthController {
     @Body() userDto: AuthUpdateDto,
   ): Promise<NullableType<User>> {
     return this.commandBus.execute(new UpdateUserCommand(user.id, userDto));
+  }
+
+  @ApiCookieAuth(ACCESS_TOKEN_COOKIE)
+  @Post('me/email-change')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Request a confirmed email address change' })
+  @ApiNoContentResponse({ description: 'Email change confirmation sent' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiUnprocessableEntityResponse({
+    description: 'Invalid current password or unavailable email change',
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  public async requestEmailChange(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AuthEmailChangeDto,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new RequestEmailChangeCommand(user.id, dto.email, dto.currentPassword),
+    );
   }
 
   @ApiCookieAuth(ACCESS_TOKEN_COOKIE)

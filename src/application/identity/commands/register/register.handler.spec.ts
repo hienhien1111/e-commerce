@@ -1,7 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventBus } from '@nestjs/cqrs';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { UnprocessableEntityException } from '@nestjs/common';
 import { RegisterHandler } from './register.handler';
 import { RegisterCommand } from './register.command';
@@ -12,6 +10,7 @@ import { UserRegisteredEvent } from '@/domain/events/user-registered.event';
 import { User } from '@/domain/entities/user';
 import { Role } from '@/domain/entities/role';
 import { RoleEnum } from '@/domain/enums/role.enum';
+import { AuthEmailService } from '@/application/identity/services/auth-email.service';
 
 describe('RegisterHandler', () => {
   let handler: RegisterHandler;
@@ -21,8 +20,8 @@ describe('RegisterHandler', () => {
   }>;
   let passwordHasher: jest.Mocked<{ hash: jest.Mock }>;
   let roleRepository: jest.Mocked<{ findByName: jest.Mock }>;
-  let jwtService: jest.Mocked<JwtService>;
   let eventBus: jest.Mocked<EventBus>;
+  let authEmailService: jest.Mocked<{ sendVerification: jest.Mock }>;
 
   const mockRole = { id: 'role-123', name: RoleEnum.USER } as Role;
   const mockUser = {
@@ -37,8 +36,8 @@ describe('RegisterHandler', () => {
     };
     passwordHasher = { hash: jest.fn() };
     roleRepository = { findByName: jest.fn() };
-    jwtService = { signAsync: jest.fn() } as unknown as jest.Mocked<JwtService>;
     eventBus = { publish: jest.fn() } as unknown as jest.Mocked<EventBus>;
+    authEmailService = { sendVerification: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -46,12 +45,8 @@ describe('RegisterHandler', () => {
         { provide: USER_REPOSITORY_PORT, useValue: userRepository },
         { provide: PASSWORD_HASHER_PORT, useValue: passwordHasher },
         { provide: ROLE_REPOSITORY_PORT, useValue: roleRepository },
-        { provide: JwtService, useValue: jwtService },
-        {
-          provide: ConfigService,
-          useValue: { getOrThrow: jest.fn().mockReturnValue('secret') },
-        },
         { provide: EventBus, useValue: eventBus },
+        { provide: AuthEmailService, useValue: authEmailService },
       ],
     }).compile();
 
@@ -68,7 +63,7 @@ describe('RegisterHandler', () => {
       userRepository.findByEmail.mockResolvedValue(null);
       userRepository.create.mockResolvedValue(mockUser);
       passwordHasher.hash.mockResolvedValue('hashed-password');
-      jwtService.signAsync.mockResolvedValue('token');
+      authEmailService.sendVerification.mockResolvedValue(undefined);
     });
 
     it('should throw if default role not found', async () => {
@@ -148,6 +143,34 @@ describe('RegisterHandler', () => {
       expect(eventBus.publish).toHaveBeenCalledWith(
         expect.any(UserRegisteredEvent),
       );
+    });
+
+    it('sends a verification email after registering', async () => {
+      const command = new RegisterCommand({
+        email: 'test@example.com',
+        password: 'password123',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+
+      await handler.execute(command);
+
+      expect(authEmailService.sendVerification).toHaveBeenCalledWith(
+        mockUser.id,
+        mockUser.email,
+      );
+    });
+
+    it('keeps registration successful when verification delivery fails', async () => {
+      authEmailService.sendVerification.mockRejectedValue(new Error('offline'));
+      const command = new RegisterCommand({
+        email: 'test@example.com',
+        password: 'password123',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+
+      await expect(handler.execute(command)).resolves.toBeUndefined();
     });
   });
 });

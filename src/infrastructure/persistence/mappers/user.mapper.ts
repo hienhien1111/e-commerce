@@ -39,6 +39,7 @@ export class UserMapper {
       phone: raw.phone,
       avatarUrl: raw.avatarUrl,
       avatarPublicId: raw.avatarPublicId,
+      verifiedAt: raw.verifiedAt,
       role: firstRole ? RoleMapper.toDomain(firstRole) : null,
       roleId: firstRole ? firstRole.id : null,
       createdAt: raw.createdAt,
@@ -63,6 +64,7 @@ export class UserMapper {
     phone: string | null;
     avatarUrl: string | null;
     avatarPublicId: string | null;
+    verifiedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -78,6 +80,7 @@ export class UserMapper {
       phone: domainEntity.phone,
       avatarUrl: domainEntity.avatarUrl,
       avatarPublicId: domainEntity.avatarPublicId,
+      verifiedAt: domainEntity.verifiedAt,
       createdAt: domainEntity.createdAt,
       updatedAt: domainEntity.updatedAt,
       deletedAt: domainEntity.deletedAt,

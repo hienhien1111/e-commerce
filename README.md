@@ -43,6 +43,10 @@ Complete guide for testing authentication endpoints, including:
 
 **Use this guide** to test authentication functionality and understand the API flow.
 
+### 🚀 [Production Release](./docs/production-release.md)
+
+Production migration/seed runbook and the one-off administrator bootstrap command.
+
 ## Quick Start
 
 1. **New to the project?** Start with [Architecture Documentation](./architecture.md)

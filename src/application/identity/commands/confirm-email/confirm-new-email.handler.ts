@@ -5,14 +5,13 @@ import {
   UnprocessableEntityException,
   Inject,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { ConfirmNewEmailCommand } from './confirm-new-email.command';
 import { ConfirmNewEmailResult } from './confirm-new-email.result';
-import { AllConfigType } from '@/config/config.type';
-import { User } from '@/domain/entities/user';
 import type { UserRepositoryPort } from '../../ports/user/user.repository.port';
 import { USER_REPOSITORY_PORT } from '../../ports/user/user.repository.port.token';
+import type { SessionRepositoryPort } from '../../ports/session/session.repository.port';
+import { SESSION_REPOSITORY_PORT } from '../../ports/session/session.repository.port.token';
+import { AuthEmailTokenService } from '@/application/identity/services/auth-email-token.service';
 
 @CommandHandler(ConfirmNewEmailCommand)
 export class ConfirmNewEmailHandler
@@ -21,35 +20,23 @@ export class ConfirmNewEmailHandler
   constructor(
     @Inject(USER_REPOSITORY_PORT)
     private readonly userRepository: UserRepositoryPort,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService<AllConfigType>,
+    @Inject(SESSION_REPOSITORY_PORT)
+    private readonly sessionRepository: SessionRepositoryPort,
+    private readonly tokenService: AuthEmailTokenService,
   ) {}
 
   async execute(
     command: ConfirmNewEmailCommand,
   ): Promise<ConfirmNewEmailResult> {
     const { hash } = command;
-    let userId: User['id'];
-    let newEmail: User['email'];
-
-    try {
-      const jwtData = await this.jwtService.verifyAsync<{
-        confirmEmailUserId: User['id'];
-        newEmail: User['email'];
-      }>(hash, {
-        secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
-          infer: true,
-        }),
-      });
-
-      userId = jwtData.confirmEmailUserId;
-      newEmail = jwtData.newEmail;
-    } catch {
+    const { sub: userId, newEmail } = await this.tokenService.verify(
+      hash,
+      'verify-new-email',
+    );
+    if (!newEmail) {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          hash: `invalidHash`,
-        },
+        errors: { hash: 'invalidHash' },
       });
     }
 
@@ -62,8 +49,18 @@ export class ConfirmNewEmailHandler
       });
     }
 
+    const existingUser = await this.userRepository.findByEmail(newEmail);
+    if (existingUser && existingUser.id !== user.id) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { email: 'emailAlreadyExists' },
+      });
+    }
+
     await this.userRepository.update(user.id, {
       email: newEmail,
+      verifiedAt: new Date(),
     });
+    await this.sessionRepository.deleteByUserId({ userId: user.id });
   }
 }

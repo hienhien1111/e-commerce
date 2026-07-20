@@ -4,11 +4,8 @@ import {
   HttpStatus,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { RegisterCommand } from './register.command';
 import { RegisterResult } from './register.result';
-import { AllConfigType } from '@/config/config.type';
 import { RoleEnum } from '@/domain/enums/role.enum';
 import { UserRegisteredEvent } from '@/domain/events/user-registered.event';
 import type { RoleRepositoryPort } from '@/application/authorization/ports/role.repository.port';
@@ -18,6 +15,7 @@ import type { PasswordHasherPort } from '../../ports/password-hasher/password-ha
 import { USER_REPOSITORY_PORT } from '../../ports/user/user.repository.port.token';
 import { PASSWORD_HASHER_PORT } from '../../ports/password-hasher/password-hasher.port.token';
 import { AuthProvidersEnum } from '@/domain/enums/auth-providers.enum';
+import { AuthEmailService } from '@/application/identity/services/auth-email.service';
 
 @CommandHandler(RegisterCommand)
 export class RegisterHandler implements ICommandHandler<RegisterCommand> {
@@ -28,9 +26,8 @@ export class RegisterHandler implements ICommandHandler<RegisterCommand> {
     private readonly passwordHasher: PasswordHasherPort,
     @Inject(ROLE_REPOSITORY_PORT)
     private readonly roleRepository: RoleRepositoryPort,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService<AllConfigType>,
     private readonly eventBus: EventBus,
+    private readonly authEmailService: AuthEmailService,
   ) {}
 
   async execute(command: RegisterCommand): Promise<RegisterResult> {
@@ -68,20 +65,14 @@ export class RegisterHandler implements ICommandHandler<RegisterCommand> {
       socialId: null,
     });
 
-    await this.jwtService.signAsync(
-      {
-        confirmEmailUserId: user.id,
-      },
-      {
-        secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
-          infer: true,
-        }),
-        expiresIn: this.configService.getOrThrow('auth.confirmEmailExpires', {
-          infer: true,
-        }),
-      },
-    );
-
     await this.eventBus.publish(new UserRegisteredEvent(user));
+    if (user.email) {
+      try {
+        await this.authEmailService.sendVerification(user.id, user.email);
+      } catch {
+        // The account has been created. Keep the response successful so the
+        // user can use the resend-verification flow once delivery recovers.
+      }
+    }
   }
 }

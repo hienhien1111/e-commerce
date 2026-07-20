@@ -1,18 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsOptional,
-  Matches,
-  MinLength,
-} from 'class-validator';
+import { IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { Transform, type TransformFnParams } from 'class-transformer';
-import { lowerCaseTransformer } from '@/utils/transformers/lower-case.transformer';
 import { UserEssentialProps } from '@/domain/entities/user';
 
 type AuthUpdateFields = Pick<
   UserEssentialProps,
-  'firstName' | 'lastName' | 'email' | 'password' | 'phone'
+  'firstName' | 'lastName' | 'phone'
 >;
 
 const normalizePhone = ({ value }: TransformFnParams): unknown => {
@@ -34,24 +27,6 @@ export class AuthUpdateDto implements Partial<AuthUpdateFields> {
   @IsOptional()
   @IsNotEmpty({ message: 'mustBeNotEmpty' })
   lastName?: string;
-
-  @ApiPropertyOptional({ example: 'new.email@example.com' })
-  @IsOptional()
-  @IsNotEmpty()
-  @IsEmail()
-  @Transform(lowerCaseTransformer)
-  email?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNotEmpty()
-  @MinLength(6)
-  password?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNotEmpty({ message: 'mustBeNotEmpty' })
-  oldPassword?: string;
 
   @ApiPropertyOptional({ example: '0901234567', nullable: true })
   @Transform(normalizePhone)

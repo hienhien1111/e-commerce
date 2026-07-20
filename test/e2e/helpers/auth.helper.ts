@@ -1,5 +1,7 @@
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
+import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
+import { InMemoryEmail } from './in-memory-email';
 
 export interface TestAuthCookies {
   access: string;
@@ -58,6 +60,17 @@ export async function loginUser(
   };
 }
 
+export async function confirmUserEmail(
+  app: INestApplication,
+  email: string,
+): Promise<void> {
+  const mailbox = app.get<InMemoryEmail>(EMAIL_PORT);
+  await request(app.getHttpServer())
+    .post('/api/v1/email/confirm')
+    .send({ hash: mailbox.latestTokenFor(email) })
+    .expect(204);
+}
+
 /**
  * Shortcut: register then immediately login.
  */
@@ -66,5 +79,6 @@ export async function registerAndLogin(
   payload: RegisterPayload,
 ): Promise<TestAuthCookies> {
   await registerUser(app, payload);
+  await confirmUserEmail(app, payload.email);
   return loginUser(app, payload.email, payload.password);
 }

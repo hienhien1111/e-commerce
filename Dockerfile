@@ -59,6 +59,22 @@ COPY . .
 # Build the application
 RUN bun run build
 
+# ==========================================================================
+# Release Stage — one-off migration and seed job. This intentionally carries
+# Prisma CLI and source code; the production API image below stays lean.
+# ==========================================================================
+FROM base AS release
+
+RUN bun install --frozen-lockfile --ignore-scripts
+
+COPY . .
+RUN bunx prisma generate
+
+COPY docker-release-entrypoint.sh /usr/local/bin/release-entrypoint.sh
+RUN chmod +x /usr/local/bin/release-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/release-entrypoint.sh"]
+
 # ============================================================================
 # Production Stage
 # ============================================================================

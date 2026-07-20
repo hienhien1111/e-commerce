@@ -56,6 +56,13 @@ export class EmailPasswordLoginStrategy
       });
     }
 
+    if (!user.verifiedAt) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { email: 'emailNotVerified' },
+      });
+    }
+
     const isValidPassword = await this.passwordHasher.compare(
       input.password!,
       user.password,

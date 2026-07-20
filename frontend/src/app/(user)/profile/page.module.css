@@ -98,6 +98,46 @@
   font-size: 13px;
 }
 
+.verified,
+.emailMessage {
+  margin-top: 8px;
+  color: var(--color-success);
+  font-size: 13px;
+}
+
+.verificationAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.verificationAction button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.emailChangeForm {
+  grid-column: 2;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.emailChangeForm h2 {
+  margin-bottom: 6px;
+  font-size: 17px;
+}
+
+.sectionHint {
+  margin-bottom: 16px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
 @media (max-width: 640px) {
   .main {
     padding-top: 20px;
@@ -115,5 +155,9 @@
   .nameFields {
     grid-template-columns: 1fr;
     gap: 0;
+  }
+
+  .emailChangeForm {
+    grid-column: auto;
   }
 }

@@ -7,6 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import authConfig from '@/infrastructure/config/auth.config';
 import webauthnConfig from '@/infrastructure/config/webauthn.config';
 import cloudinaryConfig from '@/infrastructure/config/cloudinary.config';
+import resendConfig from '@/infrastructure/config/resend.config';
 
 import { AuthController } from '@/presentation/http/controllers/auth.controller';
 import { UserController } from '@/presentation/http/controllers/user.controller';
@@ -24,6 +25,7 @@ import { JwtTokenProvider } from '@/infrastructure/providers/jwt-token-provider'
 import { InMemoryChallengeStore } from '@/infrastructure/providers/in-memory-challenge-store';
 import { RedisChallengeStore } from '@/infrastructure/providers/redis-challenge-store';
 import { CloudinaryProvider } from '@/infrastructure/providers/cloudinary.provider';
+import { ResendProvider } from '@/infrastructure/providers/resend.provider';
 
 import { PrismaUserRepository } from '@/infrastructure/persistence/repositories/prisma-user.repository';
 import { PrismaSessionRepository } from '@/infrastructure/persistence/repositories/prisma-session.repository';
@@ -48,6 +50,8 @@ import { UpdateUserHandler } from '@/application/identity/commands/update-user';
 import { DeleteUserHandler } from '@/application/identity/commands/delete-user';
 import { CreateUserHandler } from '@/application/identity/commands/create-user';
 import { UploadAvatarHandler } from '@/application/identity/commands/upload-avatar';
+import { ResendConfirmationHandler } from '@/application/identity/commands/resend-confirmation';
+import { RequestEmailChangeHandler } from '@/application/identity/commands/request-email-change';
 import { GetUserHandler } from '@/application/identity/queries/get-user';
 import { GetUsersHandler } from '@/application/identity/queries/get-users';
 import { GetMeHandler } from '@/application/identity/queries/get-me';
@@ -68,6 +72,9 @@ import { SESSION_REPOSITORY_PORT } from '@/application/identity/ports/session/se
 import { WEBAUTHN_CREDENTIAL_REPOSITORY_PORT } from '@/application/identity/ports/webauthn/webauthn-credential.repository.port.token';
 import { CHALLENGE_STORE_PORT } from '@/application/identity/ports/webauthn/challenge-store.port.token';
 import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
+import { AuthEmailService } from '@/application/identity/services/auth-email.service';
+import { AuthEmailTokenService } from '@/application/identity/services/auth-email-token.service';
 
 const CommandHandlers = [
   LoginHandler,
@@ -83,6 +90,8 @@ const CommandHandlers = [
   DeleteUserHandler,
   CreateUserHandler,
   UploadAvatarHandler,
+  ResendConfirmationHandler,
+  RequestEmailChangeHandler,
   GenerateRegistrationOptionsHandler,
   VerifyRegistrationHandler,
   GenerateAuthenticationOptionsHandler,
@@ -108,6 +117,7 @@ const EventHandlers = [
     ConfigModule.forFeature(authConfig),
     ConfigModule.forFeature(webauthnConfig),
     ConfigModule.forFeature(cloudinaryConfig),
+    ConfigModule.forFeature(resendConfig),
     PassportModule,
     JwtModule.register({}),
     PasswordHasherModule,
@@ -131,6 +141,9 @@ const EventHandlers = [
 
     JwtTokenProvider,
     CloudinaryProvider,
+    ResendProvider,
+    AuthEmailService,
+    AuthEmailTokenService,
 
     PrismaUserRepository,
     PrismaSessionRepository,
@@ -167,6 +180,10 @@ const EventHandlers = [
       provide: FILE_STORAGE_PORT,
       useExisting: CloudinaryProvider,
     },
+    {
+      provide: EMAIL_PORT,
+      useExisting: ResendProvider,
+    },
   ],
   exports: [
     TOKEN_PORT,
@@ -175,6 +192,7 @@ const EventHandlers = [
     WEBAUTHN_CREDENTIAL_REPOSITORY_PORT,
     CHALLENGE_STORE_PORT,
     FILE_STORAGE_PORT,
+    EMAIL_PORT,
   ],
 })
 export class IdentityModule {}
