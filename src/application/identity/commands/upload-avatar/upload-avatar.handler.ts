@@ -10,8 +10,8 @@ import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.rep
 import type {
   FileStoragePort,
   StoredFile,
-} from '@/application/identity/ports/file-storage/file-storage.port';
-import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+} from '@/application/shared/ports/file-storage/file-storage.port';
+import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
 import { UploadAvatarCommand } from './upload-avatar.command';
 import { UploadAvatarResult } from './upload-avatar.result';
 

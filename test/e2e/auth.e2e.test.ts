@@ -9,7 +9,7 @@ import {
   registerUser,
   type RegisterPayload,
 } from './helpers/auth.helper';
-import { FILE_STORAGE_PORT } from '@/application/identity/ports/file-storage/file-storage.port.token';
+import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
 import { InMemoryFileStorage } from './helpers/in-memory-file-storage';
 import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
 import { InMemoryEmail } from './helpers/in-memory-email';

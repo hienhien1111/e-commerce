@@ -5,7 +5,7 @@ import type { AllConfigType } from '@/config/config.type';
 import type {
   FileStoragePort,
   StoredFile,
-} from '@/application/identity/ports/file-storage/file-storage.port';
+} from '@/application/shared/ports/file-storage/file-storage.port';
 
 @Injectable()
 export class CloudinaryProvider implements FileStoragePort {

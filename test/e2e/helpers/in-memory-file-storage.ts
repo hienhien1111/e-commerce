@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   FileStoragePort,
   StoredFile,
-} from '@/application/identity/ports/file-storage/file-storage.port';
+} from '@/application/shared/ports/file-storage/file-storage.port';
 
 export class InMemoryFileStorage implements FileStoragePort {
   readonly uploads: Array<{
