@@ -4,6 +4,7 @@ import type { CategoryRepositoryPort } from '@/application/catalog/ports/categor
 import { Category } from '@/domain/entities/category';
 import { CategoryMapper } from '@/infrastructure/persistence/mappers/category.mapper';
 import { NullableType } from '@/utils/types/nullable.type';
+import { AdminCategoryFilters } from '@/application/catalog/types/catalog.types';
 
 @Injectable()
 export class PrismaCategoryRepository implements CategoryRepositoryPort {
@@ -58,6 +59,21 @@ export class PrismaCategoryRepository implements CategoryRepositoryPort {
         deletedAt: null,
         isActive: true,
         ...(parentId === undefined ? {} : { parentId }),
+      },
+      orderBy: [{ parentId: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    return categories.map((category) => CategoryMapper.toDomain(category));
+  }
+
+  async findAdmin({
+    parentId,
+    isActive,
+  }: AdminCategoryFilters): Promise<Category[]> {
+    const categories = await this.prisma.category.findMany({
+      where: {
+        deletedAt: null,
+        ...(parentId === undefined ? {} : { parentId }),
+        ...(isActive === undefined ? {} : { isActive }),
       },
       orderBy: [{ parentId: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
     });

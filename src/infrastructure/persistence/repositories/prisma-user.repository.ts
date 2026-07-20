@@ -90,7 +90,7 @@ export class PrismaUserRepository implements UserRepositoryPort {
     sortOptions?: UserSortCriteria[] | null;
     paginationOptions: IPaginationOptions;
   }): Promise<User[]> {
-    const where: Prisma.UserWhereInput = {};
+    const where: Prisma.UserWhereInput = { deletedAt: null };
 
     if (filterOptions?.roles?.length) {
       where.roles = {
@@ -98,6 +98,14 @@ export class PrismaUserRepository implements UserRepositoryPort {
           roleId: { in: filterOptions.roles.map((role) => role.id) },
         },
       };
+    }
+
+    if (filterOptions?.search) {
+      where.OR = [
+        { email: { contains: filterOptions.search, mode: 'insensitive' } },
+        { firstName: { contains: filterOptions.search, mode: 'insensitive' } },
+        { lastName: { contains: filterOptions.search, mode: 'insensitive' } },
+      ];
     }
 
     if (paginationOptions.cursor) {

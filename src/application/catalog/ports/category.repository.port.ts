@@ -1,5 +1,6 @@
 import { Category } from '@/domain/entities/category';
 import { NullableType } from '@/utils/types/nullable.type';
+import { AdminCategoryFilters } from '@/application/catalog/types/catalog.types';
 
 export interface CategoryRepositoryPort {
   create(category: Category): Promise<Category>;
@@ -8,5 +9,6 @@ export interface CategoryRepositoryPort {
   findPublicById(id: string): Promise<NullableType<Category>>;
   findBySlug(slug: string): Promise<NullableType<Category>>;
   findPublic(params: { parentId?: string }): Promise<Category[]>;
+  findAdmin(params: AdminCategoryFilters): Promise<Category[]>;
   hasChildren(id: string): Promise<boolean>;
 }

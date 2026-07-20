@@ -2,6 +2,7 @@ import { Product } from '@/domain/entities/product';
 import { NullableType } from '@/utils/types/nullable.type';
 import {
   ProductFilters,
+  AdminProductFilters,
   ProductPage,
 } from '@/application/catalog/types/catalog.types';
 
@@ -14,6 +15,11 @@ export interface ProductRepositoryPort {
   findBySku(sku: string): Promise<NullableType<Product>>;
   findPublicPage(params: {
     filters: ProductFilters;
+    cursor: string | null;
+    limit: number;
+  }): Promise<ProductPage>;
+  findAdminPage(params: {
+    filters: AdminProductFilters;
     cursor: string | null;
     limit: number;
   }): Promise<ProductPage>;

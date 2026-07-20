@@ -91,10 +91,14 @@ export class UserController {
     const limit = Math.min(query?.limit ?? 10, 50);
 
     const users = await this.queryBus.execute(
-      new GetUsersQuery(query.filters, query.sort, {
-        cursor: query.cursor ?? null,
-        limit,
-      }),
+      new GetUsersQuery(
+        { ...query.filters, search: query.search || undefined },
+        query.sort,
+        {
+          cursor: query.cursor ?? null,
+          limit,
+        },
+      ),
     );
 
     return infinityPagination(users, { cursor: query.cursor ?? null, limit });

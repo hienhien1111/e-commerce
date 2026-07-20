@@ -24,6 +24,9 @@ import { GetCategoryHandler } from '@/application/catalog/queries/get-category';
 import { GetCategoriesHandler } from '@/application/catalog/queries/get-categories';
 import { GetProductHandler } from '@/application/catalog/queries/get-product';
 import { GetProductsHandler } from '@/application/catalog/queries/get-products';
+import { GetAdminProductsHandler } from '@/application/catalog/queries/get-admin-products';
+import { GetAdminCategoriesHandler } from '@/application/catalog/queries/get-admin-categories';
+import { AdminCatalogController } from '@/presentation/http/controllers/admin-catalog.controller';
 
 const CommandHandlers = [
   CreateCategoryHandler,
@@ -41,6 +44,8 @@ const QueryHandlers = [
   GetCategoriesHandler,
   GetProductHandler,
   GetProductsHandler,
+  GetAdminProductsHandler,
+  GetAdminCategoriesHandler,
 ];
 
 @Module({
@@ -49,7 +54,7 @@ const QueryHandlers = [
     PrismaModule,
     ConfigModule.forFeature(cloudinaryConfig),
   ],
-  controllers: [CategoryController, ProductController],
+  controllers: [CategoryController, ProductController, AdminCatalogController],
   providers: [
     CloudinaryProvider,
     PrismaCategoryRepository,

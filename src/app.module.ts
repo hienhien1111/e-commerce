@@ -23,6 +23,7 @@ import { CartModule } from './application/cart/cart.module';
 import { DiscountModule } from './application/discount/discount.module';
 import { OrderModule } from './application/order/order.module';
 import { PaymentModule } from './application/payment/payment.module';
+import { AdminModule } from './application/admin/admin.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { PaymentModule } from './application/payment/payment.module';
     CartModule,
     OrderModule,
     PaymentModule,
+    AdminModule,
   ],
   providers: [
     {

@@ -13,5 +13,17 @@ export type ProductFilters = {
   maxPrice?: number;
 };
 
+export type AdminProductFilters = Pick<
+  ProductFilters,
+  'categoryId' | 'search'
+> & {
+  isActive?: boolean;
+};
+
+export type AdminCategoryFilters = {
+  parentId?: string;
+  isActive?: boolean;
+};
+
 export type ProductPage = CursorPage<Product>;
 export type CategoryList = Category[];

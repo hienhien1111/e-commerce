@@ -10,6 +10,7 @@ import {
 import { NullableType } from '@/utils/types/nullable.type';
 import {
   ProductFilters,
+  AdminProductFilters,
   ProductPage,
 } from '@/application/catalog/types/catalog.types';
 
@@ -143,6 +144,37 @@ export class PrismaProductRepository implements ProductRepositoryPort {
                 : {}),
             },
           }
+        : {}),
+      ...(cursor ? { id: { gt: cursor } } : {}),
+    };
+    const rows = await this.prisma.product.findMany({
+      where,
+      orderBy: { id: 'asc' },
+      take: limit + 1,
+      include: PRODUCT_IMAGES_INCLUDE,
+    });
+    const hasNext = rows.length > limit;
+    const data = rows
+      .slice(0, limit)
+      .map((row) => ProductMapper.toDomain(row as PrismaProductWithImages));
+    return { data, nextCursor: hasNext ? (data.at(-1)?.id ?? null) : null };
+  }
+
+  async findAdminPage({
+    filters,
+    cursor,
+    limit,
+  }: {
+    filters: AdminProductFilters;
+    cursor: string | null;
+    limit: number;
+  }): Promise<ProductPage> {
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+      ...(filters.isActive === undefined ? {} : { isActive: filters.isActive }),
+      ...(filters.search
+        ? { name: { contains: filters.search, mode: 'insensitive' } }
         : {}),
       ...(cursor ? { id: { gt: cursor } } : {}),
     };

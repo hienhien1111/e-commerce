@@ -29,6 +29,12 @@ export class SortUserDto {
 }
 
 export class QueryUserDto {
+  @ApiPropertyOptional({ description: 'Search by name or email' })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  search?: string;
+
   @ApiPropertyOptional({
     type: String,
     description:

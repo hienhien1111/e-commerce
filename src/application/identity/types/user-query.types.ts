@@ -5,6 +5,7 @@ import type { Role } from '@/domain/entities/role';
 
 export interface UserFilterCriteria {
   roles?: Pick<Role, 'id'>[] | null;
+  search?: string;
 }
 
 export interface UserSortCriteria {
