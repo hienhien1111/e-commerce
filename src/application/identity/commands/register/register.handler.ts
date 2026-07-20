@@ -33,7 +33,7 @@ export class RegisterHandler implements ICommandHandler<RegisterCommand> {
   async execute(command: RegisterCommand): Promise<RegisterResult> {
     const { payload } = command;
 
-    const defaultRole = await this.roleRepository.findByName(RoleEnum.USER);
+    const defaultRole = await this.roleRepository.findByName(RoleEnum.CUSTOMER);
     if (!defaultRole) {
       throw new Error('Default user role not found');
     }

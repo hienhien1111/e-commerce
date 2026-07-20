@@ -23,7 +23,7 @@ describe('RegisterHandler', () => {
   let eventBus: jest.Mocked<EventBus>;
   let authEmailService: jest.Mocked<{ sendVerification: jest.Mock }>;
 
-  const mockRole = { id: 'role-123', name: RoleEnum.USER } as Role;
+  const mockRole = { id: 'role-123', name: RoleEnum.CUSTOMER } as Role;
   const mockUser = {
     id: 'user-123',
     email: 'test@example.com',

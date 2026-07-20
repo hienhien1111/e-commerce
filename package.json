@@ -12,6 +12,7 @@
     "db:pull": "prisma db pull",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "db:roles:migrate": "bun scripts/migrate-customer-role.ts",
     "admin:create": "bun scripts/create-admin.ts",
     "prebuild": "rimraf dist",
     "build": "nest build && tsc-alias -p tsconfig.build.json",

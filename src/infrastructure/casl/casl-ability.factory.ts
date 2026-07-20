@@ -3,8 +3,15 @@ import { createPrismaAbility, PrismaAbility, Subjects } from '@casl/prisma';
 import { Injectable } from '@nestjs/common';
 import type {
   User as PrismaUser,
+  UserAddress as PrismaUserAddress,
   Role as PrismaRole,
   Permission as PrismaPermission,
+  Category as PrismaCategory,
+  Product as PrismaProduct,
+  Cart as PrismaCart,
+  Order as PrismaOrder,
+  Payment as PrismaPayment,
+  Coupon as PrismaCoupon,
 } from '@/generated/prisma/client';
 import { User } from '@/domain/entities/user';
 import { Permission } from '@/domain/entities/permission';
@@ -22,8 +29,15 @@ export type AppSubjects =
   | PermissionSubjectEnum
   | Subjects<{
       User: PrismaUser;
+      UserAddress: PrismaUserAddress;
       Role: PrismaRole;
       Permission: PrismaPermission;
+      Category: PrismaCategory;
+      Product: PrismaProduct;
+      Cart: PrismaCart;
+      Order: PrismaOrder;
+      Payment: PrismaPayment;
+      Coupon: PrismaCoupon;
     }>;
 
 export type Actions = PermissionActionEnum | string;
