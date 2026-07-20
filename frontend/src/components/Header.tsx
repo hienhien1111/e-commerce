@@ -70,6 +70,9 @@ export function Header() {
 
         <nav className={styles.navigation} aria-label="Điều hướng chính">
           <Link href="/">Trang chủ</Link>
+          {user?.role?.name === 'admin' && (
+            <Link href="/admin/orders">Quản trị</Link>
+          )}
           <CartIcon />
           {user ? (
             <>
