@@ -15,6 +15,8 @@ import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-
 import { EMAIL_PORT } from '@/application/identity/ports/email/email.port.token';
 import { InMemoryFileStorage } from './in-memory-file-storage';
 import { InMemoryEmail } from './in-memory-email';
+import { PAYMENT_GATEWAY_PORT } from '@/application/payment/ports/payment.gateway.port.token';
+import { InMemoryMomoGateway } from './in-memory-momo-gateway';
 
 /**
  * Creates and initialises a full NestJS application for E2E testing.
@@ -28,6 +30,8 @@ export async function createTestApp(): Promise<INestApplication> {
     .useValue(new InMemoryFileStorage())
     .overrideProvider(EMAIL_PORT)
     .useValue(new InMemoryEmail())
+    .overrideProvider(PAYMENT_GATEWAY_PORT)
+    .useValue(new InMemoryMomoGateway())
     .compile();
 
   const app = moduleFixture.createNestApplication();

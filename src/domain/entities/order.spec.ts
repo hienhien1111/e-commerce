@@ -69,4 +69,12 @@ describe('Order', () => {
     expect(order.confirmFromPayment()).toBe(false);
     expect(order.status).toBe(OrderStatusEnum.PROCESSING);
   });
+
+  it('marks payment paid without resurrecting a cancelled order', () => {
+    const order = createOrder();
+    order.cancel(false);
+    expect(order.markPaidFromPayment()).toBe(true);
+    expect(order.status).toBe(OrderStatusEnum.CANCELLED);
+    expect(order.paymentStatus).toBe(PaymentStatusEnum.PAID);
+  });
 });
