@@ -21,6 +21,7 @@ import { AuthorizationModule } from './application/authorization/authorization.m
 import { CatalogModule } from './application/catalog/catalog.module';
 import { CartModule } from './application/cart/cart.module';
 import { DiscountModule } from './application/discount/discount.module';
+import { OrderModule } from './application/order/order.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { DiscountModule } from './application/discount/discount.module';
     CatalogModule,
     DiscountModule,
     CartModule,
+    OrderModule,
   ],
   providers: [
     {

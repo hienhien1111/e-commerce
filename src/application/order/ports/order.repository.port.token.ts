@@ -1,0 +1,1 @@
+export const ORDER_REPOSITORY_PORT = Symbol('ORDER_REPOSITORY_PORT');

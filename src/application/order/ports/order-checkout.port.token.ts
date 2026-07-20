@@ -1,0 +1,1 @@
+export const ORDER_CHECKOUT_PORT = Symbol('ORDER_CHECKOUT_PORT');
