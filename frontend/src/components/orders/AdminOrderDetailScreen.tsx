@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import AuthGuard from '@/components/AuthGuard';
 import { ApiError, api } from '@/lib/api';
 import {
   canAdminCancel,
@@ -13,11 +12,13 @@ import {
 } from '@/lib/order';
 import { OrderItems, OrderTotals } from './OrderItems';
 import styles from './OrderScreens.module.css';
+import { useToast } from '@/providers/ToastProvider';
 
 function AdminOrderDetailContent({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
   const load = useCallback(async () => {
     try {
       setOrder(await api.get<Order>(`v1/admin/orders/${orderId}`));
@@ -36,10 +37,12 @@ function AdminOrderDetailContent({ orderId }: { orderId: string }) {
     try {
       await (body ? api.patch(url, body) : api.post(url));
       await load();
+      toast.success('Đã cập nhật đơn hàng.');
     } catch (cause) {
-      setError(
-        cause instanceof ApiError ? cause.message : 'Thao tác thất bại.',
-      );
+      const message =
+        cause instanceof ApiError ? cause.message : 'Thao tác thất bại.';
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -143,9 +146,5 @@ function AdminOrderDetailContent({ orderId }: { orderId: string }) {
 }
 
 export function AdminOrderDetailScreen({ orderId }: { orderId: string }) {
-  return (
-    <AuthGuard requireAdmin>
-      <AdminOrderDetailContent orderId={orderId} />
-    </AuthGuard>
-  );
+  return <AdminOrderDetailContent orderId={orderId} />;
 }

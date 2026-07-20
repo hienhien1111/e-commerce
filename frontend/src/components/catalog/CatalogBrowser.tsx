@@ -161,7 +161,11 @@ export function CatalogBrowser() {
   return (
     <main className={styles.main}>
       <div className={`container ${styles.layout}`}>
-        <aside className={styles.sidebar} aria-label="Danh mục sản phẩm">
+        <aside
+          className={styles.sidebar}
+          aria-label="Danh mục sản phẩm"
+          id="catalog-categories"
+        >
           <h2>Danh mục</h2>
           <button
             className={!categoryId ? styles.activeCategory : ''}

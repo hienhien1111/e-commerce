@@ -54,9 +54,9 @@
   --radius-md: 4px;
 
   /* Shadow */
-  --shadow-card: 0 1px 4px rgba(0,0,0,0.08);
-  --shadow-dropdown: 0 2px 8px rgba(0,0,0,0.12);
-  --shadow-modal: 0 4px 20px rgba(0,0,0,0.15);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --shadow-dropdown: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --shadow-modal: 0 4px 20px rgba(0, 0, 0, 0.15);
 
   /* Transitions */
   --transition-fast: 150ms ease;
@@ -64,7 +64,9 @@
 }
 
 /* ── Reset ──────────────────────────────────────────────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -78,7 +80,12 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   background-color: var(--color-bg);
   color: var(--color-text-primary);
   min-height: 100vh;
@@ -106,7 +113,9 @@ img {
   display: block;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   font-family: inherit;
   font-size: inherit;
 }
@@ -127,7 +136,9 @@ input, textarea, select {
   border-radius: var(--radius-md);
   font-weight: 500;
   font-size: 14px;
-  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    opacity var(--transition-fast);
   cursor: pointer;
   border: 1px solid transparent;
 }
@@ -174,12 +185,30 @@ input, textarea, select {
   font-weight: 500;
 }
 
-.badge-pending  { background: #fff3e0; color: #f57c00; }
-.badge-confirmed { background: #e3f2fd; color: #1565c0; }
-.badge-processing { background: #e8f5e9; color: #2e7d32; }
-.badge-shipped  { background: #f3e5f5; color: #6a1b9a; }
-.badge-delivered { background: #e8f5e9; color: #1b5e20; }
-.badge-cancelled { background: #fafafa; color: #757575; }
+.badge-pending {
+  background: #fff3e0;
+  color: #f57c00;
+}
+.badge-confirmed {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+.badge-processing {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.badge-shipped {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+.badge-delivered {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+.badge-cancelled {
+  background: #fafafa;
+  color: #757575;
+}
 
 .price {
   color: var(--color-price);
@@ -237,8 +266,12 @@ input, textarea, select {
 
 /* ── Skeleton loading ────────────────────────────────────────── */
 @keyframes skeleton-shimmer {
-  0% { background-position: -468px 0; }
-  100% { background-position: 468px 0; }
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
 }
 
 .skeleton {
@@ -271,10 +304,28 @@ input, textarea, select {
 }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.toast-success { background: var(--color-success); }
-.toast-error   { background: var(--color-error); }
-.toast-warning { background: var(--color-warning); }
+.toast-success {
+  background: var(--color-success);
+}
+.toast-error {
+  background: var(--color-error);
+}
+.toast-warning {
+  background: var(--color-warning);
+}
+
+@media (max-width: 700px) {
+  body {
+    padding-bottom: 66px;
+  }
+}

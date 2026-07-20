@@ -12,6 +12,7 @@ export function Header() {
   // The server cannot read localStorage. Keep the first browser render equal
   // to the server render, then hydrate the cached session in an effect.
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -68,11 +69,21 @@ export function Header() {
           <span>ShopApp</span>
         </Link>
 
-        <nav className={styles.navigation} aria-label="Điều hướng chính">
+        <button
+          aria-expanded={menuOpen}
+          aria-label="Mở menu"
+          className={styles.menuButton}
+          onClick={() => setMenuOpen((current) => !current)}
+          type="button"
+        >
+          ☰
+        </button>
+        <nav
+          className={`${styles.navigation} ${menuOpen ? styles.open : ''}`}
+          aria-label="Điều hướng chính"
+        >
           <Link href="/">Trang chủ</Link>
-          {user?.role?.name === 'admin' && (
-            <Link href="/admin/orders">Quản trị</Link>
-          )}
+          {user?.role?.name === 'admin' && <Link href="/admin">Quản trị</Link>}
           <CartIcon />
           {user ? (
             <>
@@ -105,6 +116,21 @@ export function Header() {
           )}
         </nav>
       </div>
+      <nav className={styles.mobileBottom} aria-label="Điều hướng di động">
+        <Link href="/">
+          <span aria-hidden="true">⌂</span>
+          Trang chủ
+        </Link>
+        <Link href="/#catalog-categories">
+          <span aria-hidden="true">☷</span>
+          Danh mục
+        </Link>
+        <CartIcon />
+        <Link href={user ? '/profile' : '/login'}>
+          <span aria-hidden="true">◉</span>
+          {user ? 'Tài khoản' : 'Đăng nhập'}
+        </Link>
+      </nav>
     </header>
   );
 }

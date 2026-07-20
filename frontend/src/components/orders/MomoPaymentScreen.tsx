@@ -7,6 +7,7 @@ import AuthGuard from '@/components/AuthGuard';
 import { ApiError, api } from '@/lib/api';
 import { formatVnd } from '@/lib/catalog';
 import type { Payment } from '@/lib/payment';
+import { useToast } from '@/providers/ToastProvider';
 import styles from './OrderScreens.module.css';
 
 function formatRemaining(expiresAt: string | null, now: number): string | null {
@@ -23,24 +24,24 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const toast = useToast();
 
   const initiate = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setPayment(
-        await api.post<Payment>('v1/payments/initiate', { orderId }),
-      );
+      setPayment(await api.post<Payment>('v1/payments/initiate', { orderId }));
     } catch (cause) {
       setError(
         cause instanceof ApiError
           ? cause.message
           : 'Không thể tạo phiên thanh toán MoMo.',
       );
+      toast.error('Không thể tạo phiên thanh toán MoMo.');
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, toast]);
 
   const poll = useCallback(async () => {
     try {
@@ -83,8 +84,8 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
         <section className={`card ${styles.paymentCard}`}>
           <h1>Thanh toán MoMo</h1>
           <p className={styles.muted}>
-            Trạng thái thanh toán được xác nhận tự động sau khi MoMo gửi kết
-            quả đến hệ thống.
+            Trạng thái thanh toán được xác nhận tự động sau khi MoMo gửi kết quả
+            đến hệ thống.
           </p>
           {loading && <div className="skeleton" style={{ height: 360 }} />}
           {!loading && error && <p className={styles.error}>{error}</p>}
@@ -92,7 +93,10 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
             <div className={styles.paymentSuccess}>
               <h2>Thanh toán thành công</h2>
               <p>Đơn hàng đã được MoMo xác nhận.</p>
-              <Link className="btn btn-primary" href={`/orders/${orderId}?payment=success`}>
+              <Link
+                className="btn btn-primary"
+                href={`/orders/${orderId}?payment=success`}
+              >
                 Xem đơn hàng
               </Link>
             </div>
@@ -107,9 +111,13 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
                   <QRCodeSVG value={payment.qrCodeUrl} size={220} />
                 </div>
               ) : (
-                <p className={styles.notice}>Không có mã QR, hãy dùng liên kết bên dưới.</p>
+                <p className={styles.notice}>
+                  Không có mã QR, hãy dùng liên kết bên dưới.
+                </p>
               )}
-              <p className={styles.countdown}>Phiên còn hiệu lực: {remaining}</p>
+              <p className={styles.countdown}>
+                Phiên còn hiệu lực: {remaining}
+              </p>
               <div className={styles.actions}>
                 {payment.deeplink && (
                   <a className="btn btn-primary" href={payment.deeplink}>
@@ -122,7 +130,9 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
                   </a>
                 )}
               </div>
-              <p className={styles.muted}>Đang kiểm tra trạng thái mỗi 3 giây…</p>
+              <p className={styles.muted}>
+                Đang kiểm tra trạng thái mỗi 3 giây…
+              </p>
             </div>
           )}
           {!loading && (expired || payment?.status === 'FAILED' || error) && (
@@ -132,7 +142,11 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
                   ? 'Phiên thanh toán đã hết hạn.'
                   : 'Phiên thanh toán không thành công. Bạn có thể thử lại.'}
               </p>
-              <button className="btn btn-primary" type="button" onClick={() => void initiate()}>
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={() => void initiate()}
+              >
                 Thử lại
               </button>
             </div>

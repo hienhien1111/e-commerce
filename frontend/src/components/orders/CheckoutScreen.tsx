@@ -7,6 +7,7 @@ import { ApiError, api } from '@/lib/api';
 import { formatVnd } from '@/lib/catalog';
 import { Order, ShippingAddress } from '@/lib/order';
 import { useCart } from '@/providers/CartProvider';
+import { useToast } from '@/providers/ToastProvider';
 import styles from './OrderScreens.module.css';
 
 const blankAddress: ShippingAddress = {
@@ -24,6 +25,7 @@ function CheckoutContent() {
   const [address, setAddress] = useState<ShippingAddress>(blankAddress);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     void refresh().catch(() => undefined);
@@ -39,11 +41,13 @@ function CheckoutContent() {
       });
       await refresh();
       setOpen(false);
+      toast.success('Đặt hàng thành công.');
       router.replace(`/orders/${order.id}`);
     } catch (cause) {
-      setError(
-        cause instanceof ApiError ? cause.message : 'Không thể đặt hàng.',
-      );
+      const message =
+        cause instanceof ApiError ? cause.message : 'Không thể đặt hàng.';
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }

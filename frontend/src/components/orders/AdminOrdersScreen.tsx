@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import AuthGuard from '@/components/AuthGuard';
 import { ApiError, api } from '@/lib/api';
 import { formatVnd } from '@/lib/catalog';
 import {
@@ -192,9 +191,5 @@ function AdminOrdersContent() {
 }
 
 export function AdminOrdersScreen() {
-  return (
-    <AuthGuard requireAdmin>
-      <AdminOrdersContent />
-    </AuthGuard>
-  );
+  return <AdminOrdersContent />;
 }

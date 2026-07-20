@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { formatVnd, Product } from '@/lib/catalog';
 import { useCart } from '@/providers/CartProvider';
+import { useToast } from '@/providers/ToastProvider';
 import styles from './ProductDetail.module.css';
 
 export function ProductDetail({ productId }: { productId: string }) {
@@ -15,6 +16,7 @@ export function ProductDetail({ productId }: { productId: string }) {
   const [cartError, setCartError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const { addItem } = useCart();
+  const toast = useToast();
 
   useEffect(() => {
     let active = true;
@@ -61,6 +63,7 @@ export function ProductDetail({ productId }: { productId: string }) {
       await addItem(product.id, quantity);
     } catch {
       setCartError('Không thể thêm sản phẩm vào giỏ. Vui lòng thử lại.');
+      toast.error('Không thể thêm sản phẩm vào giỏ.');
     } finally {
       setAdding(false);
     }

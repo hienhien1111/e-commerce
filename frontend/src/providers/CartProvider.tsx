@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import { Cart, emptyCart } from '@/lib/cart';
 import { CartSidebar } from '@/components/cart/CartSidebar';
+import { useToast } from '@/providers/ToastProvider';
 
 type CartContextValue = {
   cart: Cart;
@@ -32,6 +33,7 @@ const CartContext = createContext<CartContextValue | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [isOpen, setOpen] = useState(false);
+  const toast = useToast();
 
   const refresh = useCallback(async () => {
     if (!auth.isLoggedIn()) {
@@ -57,37 +59,72 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setOpen,
       refresh,
       addItem: async (productId, quantity) => {
-        const result = await api.post<Cart>('v1/cart/items', {
-          productId,
-          quantity,
-        });
-        setCart(result);
-        setOpen(true);
+        try {
+          const result = await api.post<Cart>('v1/cart/items', {
+            productId,
+            quantity,
+          });
+          setCart(result);
+          setOpen(true);
+          toast.success('Đã thêm sản phẩm vào giỏ hàng.');
+        } catch (error) {
+          toast.error('Không thể thêm sản phẩm vào giỏ hàng.');
+          throw error;
+        }
       },
       updateItem: async (productId, quantity) => {
-        const result = await api.patch<Cart>(`v1/cart/items/${productId}`, {
-          quantity,
-        });
-        setCart(result);
+        try {
+          const result = await api.patch<Cart>(`v1/cart/items/${productId}`, {
+            quantity,
+          });
+          setCart(result);
+        } catch (error) {
+          toast.error('Không thể cập nhật giỏ hàng.');
+          throw error;
+        }
       },
       removeItem: async (productId) => {
-        await api.delete(`v1/cart/items/${productId}`);
-        await refresh();
+        try {
+          await api.delete(`v1/cart/items/${productId}`);
+          await refresh();
+          toast.success('Đã xoá sản phẩm khỏi giỏ hàng.');
+        } catch (error) {
+          toast.error('Không thể xoá sản phẩm khỏi giỏ hàng.');
+          throw error;
+        }
       },
       clear: async () => {
-        await api.delete('v1/cart');
-        setCart(emptyCart());
+        try {
+          await api.delete('v1/cart');
+          setCart(emptyCart());
+          toast.success('Đã xoá giỏ hàng.');
+        } catch (error) {
+          toast.error('Không thể xoá giỏ hàng.');
+          throw error;
+        }
       },
       applyCoupon: async (code) => {
-        const result = await api.post<Cart>('v1/cart/coupon', { code });
-        setCart(result);
+        try {
+          const result = await api.post<Cart>('v1/cart/coupon', { code });
+          setCart(result);
+          toast.success('Đã áp dụng mã giảm giá.');
+        } catch (error) {
+          toast.error('Không thể áp dụng mã giảm giá.');
+          throw error;
+        }
       },
       removeCoupon: async () => {
-        const result = await api.delete<Cart>('v1/cart/coupon');
-        setCart(result);
+        try {
+          const result = await api.delete<Cart>('v1/cart/coupon');
+          setCart(result);
+          toast.success('Đã gỡ mã giảm giá.');
+        } catch (error) {
+          toast.error('Không thể gỡ mã giảm giá.');
+          throw error;
+        }
       },
     }),
-    [cart, isOpen, refresh],
+    [cart, isOpen, refresh, toast],
   );
 
   return (

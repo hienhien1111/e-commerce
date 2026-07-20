@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import AuthGuard from '@/components/AuthGuard';
+import styles from '@/components/admin/AdminScreens.module.css';
 
 export default function AdminLayout({
   children,
@@ -6,24 +8,19 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <AuthGuard requireAdmin>
       <nav
         aria-label="Điều hướng quản trị"
-        className="container"
-        style={{ display: 'flex', gap: 16, paddingTop: 16 }}
+        className={`container ${styles.adminNav}`}
       >
+        <Link href="/admin">Dashboard</Link>
+        <Link href="/admin/products">Sản phẩm</Link>
+        <Link href="/admin/categories">Danh mục</Link>
         <Link href="/admin/orders">Đơn hàng</Link>
-        <span style={{ color: 'var(--color-text-muted)' }}>
-          Dashboard (sắp có)
-        </span>
-        <span style={{ color: 'var(--color-text-muted)' }}>
-          Sản phẩm (sắp có)
-        </span>
-        <span style={{ color: 'var(--color-text-muted)' }}>
-          Coupons (sắp có)
-        </span>
+        <Link href="/admin/coupons">Coupons</Link>
+        <Link href="/admin/users">Người dùng</Link>
       </nav>
       {children}
-    </>
+    </AuthGuard>
   );
 }
