@@ -33,7 +33,7 @@ export class ApplyCartCouponHandler
       command.code,
       view.subtotal,
     );
-    if (!result.valid || !result.coupon) {
+    if (!result.coupon) {
       throw new UnprocessableEntityException({ reason: result.reason });
     }
     cart.applyCoupon(result.coupon.id);

@@ -18,18 +18,21 @@ const prisma = new PrismaClient({ adapter });
 const ROLE = { ADMIN: 'admin', CUSTOMER: 'customer' } as const;
 
 const customerPermissions: Array<[PermissionAction, PermissionSubject]> = [
-  [PermissionAction.read, PermissionSubject.product],
-  [PermissionAction.read, PermissionSubject.category],
-  [PermissionAction.read, PermissionSubject.coupon],
   [PermissionAction.create, PermissionSubject.cart],
   [PermissionAction.read, PermissionSubject.cart],
   [PermissionAction.update, PermissionSubject.cart],
   [PermissionAction.delete, PermissionSubject.cart],
-  [PermissionAction.create, PermissionSubject.order],
-  [PermissionAction.read, PermissionSubject.order],
-  [PermissionAction.update, PermissionSubject.order],
-  [PermissionAction.create, PermissionSubject.payment],
-  [PermissionAction.read, PermissionSubject.payment],
+];
+
+const obsoleteCustomerPermissionNames = [
+  'customer:read:product',
+  'customer:read:category',
+  'customer:read:coupon',
+  'customer:create:order',
+  'customer:read:order',
+  'customer:update:order',
+  'customer:create:payment',
+  'customer:read:payment',
 ];
 
 async function seedRolesAndPermissions() {
@@ -66,6 +69,12 @@ async function seedRolesAndPermissions() {
     },
     create: { roleId: adminRole.id, permissionId: adminPermission.id },
     update: {},
+  });
+  await prisma.rolePermission.deleteMany({
+    where: {
+      roleId: customerRole.id,
+      permission: { name: { in: obsoleteCustomerPermissionNames } },
+    },
   });
   for (const [action, subject] of customerPermissions) {
     const name = `customer:${action}:${subject}`;
