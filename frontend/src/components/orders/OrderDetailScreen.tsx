@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
 import { ApiError, api } from '@/lib/api';
 import {
@@ -23,6 +24,7 @@ const timeline: OrderStatus[] = [
 ];
 
 function OrderDetailContent({ orderId }: { orderId: string }) {
+  const searchParams = useSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -71,6 +73,9 @@ function OrderDetailContent({ orderId }: { orderId: string }) {
     <main className={styles.page}>
       <div className="container">
         <h1>Đơn #{order.id.slice(-8).toUpperCase()}</h1>
+        {searchParams.get('payment') === 'success' && (
+          <p className={styles.paymentSuccess}>Thanh toán MoMo đã được xác nhận.</p>
+        )}
         <div className={styles.grid}>
           <section className={`card ${styles.card}`}>
             <div className={styles.orderTop}>
@@ -110,9 +115,17 @@ function OrderDetailContent({ orderId }: { orderId: string }) {
             <h2 style={{ marginTop: 24 }}>Thanh toán</h2>
             <p className={styles.muted}>
               {order.paymentStatus === 'PENDING'
-                ? 'Thanh toán sẽ khả dụng ở PR10.'
+                ? 'Chưa thanh toán.'
                 : `Trạng thái: ${order.paymentStatus}`}
             </p>
+            {order.status !== 'CANCELLED' &&
+              order.paymentStatus === 'PENDING' && (
+                <div className={styles.actions}>
+                  <Link className="btn btn-primary" href={`/orders/${order.id}/payment`}>
+                    Thanh toán MoMo
+                  </Link>
+                </div>
+              )}
             <OrderTotals order={order} />
             {canCustomerCancel(order) && (
               <div className={styles.actions}>

@@ -175,6 +175,43 @@
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   margin-bottom: var(--space-4);
 }
+.paymentPage {
+  max-width: 620px;
+}
+.backLink {
+  display: inline-block;
+  margin-bottom: var(--space-4);
+}
+.paymentCard {
+  padding: var(--space-6);
+  text-align: center;
+}
+.paymentCard h1 {
+  margin-bottom: var(--space-3);
+}
+.paymentSession,
+.paymentRetry,
+.paymentSuccess {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+.paymentAmount {
+  color: var(--color-price);
+  font-size: 24px;
+}
+.qr {
+  background: #fff;
+  border: 1px solid var(--color-border-light);
+  padding: var(--space-4);
+}
+.countdown {
+  color: var(--color-price);
+  font-size: 18px;
+  font-weight: 700;
+}
 @media (max-width: 720px) {
   .grid {
     grid-template-columns: 1fr;
