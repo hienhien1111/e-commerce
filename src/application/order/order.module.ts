@@ -33,5 +33,6 @@ import { AdminOrderController } from '@/presentation/http/controllers/admin-orde
     { provide: ORDER_CHECKOUT_PORT, useExisting: PrismaOrderRepository },
     { provide: ORDER_CANCELLATION_PORT, useExisting: PrismaOrderRepository },
   ],
+  exports: [ORDER_REPOSITORY_PORT],
 })
 export class OrderModule {}

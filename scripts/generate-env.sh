@@ -108,7 +108,8 @@ MOMO_ACCESS_KEY=
 MOMO_SECRET_KEY=
 MOMO_ENDPOINT=https://test-payment.momo.vn
 MOMO_IPN_URL=https://REPLACE_WITH_NGROK_URL/api/v1/webhooks/momo
-MOMO_REDIRECT_URL=http://localhost:3000/checkout/success
+MOMO_REDIRECT_URL=http://localhost:3000/payment/return
+MOMO_PAYMENT_EXPIRY_MINUTES=15
 
 # Frontend
 NEXT_PUBLIC_API_URL=http://localhost:3002/api

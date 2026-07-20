@@ -168,6 +168,14 @@ export class Order extends BaseDomainModel<OrderProps> {
     return true;
   }
 
+  /** Records settlement without changing a fulfilled or cancelled status. */
+  markPaidFromPayment(): boolean {
+    if (this.paymentStatus === PaymentStatusEnum.PAID) return false;
+    this.props.paymentStatus = PaymentStatusEnum.PAID;
+    if (!this.confirmFromPayment()) this.touch();
+    return true;
+  }
+
   cancel(allowProcessing: boolean): void {
     if (!this.canCancel(allowProcessing))
       throw new Error('Order cannot be cancelled');

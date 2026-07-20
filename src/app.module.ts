@@ -22,6 +22,7 @@ import { CatalogModule } from './application/catalog/catalog.module';
 import { CartModule } from './application/cart/cart.module';
 import { DiscountModule } from './application/discount/discount.module';
 import { OrderModule } from './application/order/order.module';
+import { PaymentModule } from './application/payment/payment.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { OrderModule } from './application/order/order.module';
     DiscountModule,
     CartModule,
     OrderModule,
+    PaymentModule,
   ],
   providers: [
     {

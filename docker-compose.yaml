@@ -90,7 +90,8 @@ services:
       MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
       MOMO_ENDPOINT: ${MOMO_ENDPOINT:-https://test-payment.momo.vn}
       MOMO_IPN_URL: ${MOMO_IPN_URL:-}
-      MOMO_REDIRECT_URL: ${MOMO_REDIRECT_URL:-http://localhost:3000/checkout/success}
+      MOMO_REDIRECT_URL: ${MOMO_REDIRECT_URL:-http://localhost:3000/payment/return}
+      MOMO_PAYMENT_EXPIRY_MINUTES: ${MOMO_PAYMENT_EXPIRY_MINUTES:-15}
     volumes:
       - ./src:/usr/src/app/src:rw
       - ./prisma:/usr/src/app/prisma:rw

@@ -5,4 +5,5 @@ export type MomoConfig = {
   endpoint?: string;
   ipnUrl?: string;
   redirectUrl?: string;
+  paymentExpiryMinutes: number;
 };
