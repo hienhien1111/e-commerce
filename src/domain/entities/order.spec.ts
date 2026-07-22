@@ -2,6 +2,8 @@ import { OrderFactory } from '@/domain/factories/order.factory';
 import { OrderItemFactory } from '@/domain/factories/order-item.factory';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { OrderCancelledEvent } from '@/domain/events/order-cancelled.event';
+import { OrderPlacedEvent } from '@/domain/events/order-placed.event';
 
 const createOrder = () =>
   OrderFactory.create({
@@ -68,5 +70,66 @@ describe('Order', () => {
     order.transitionTo(OrderStatusEnum.PROCESSING);
     expect(order.confirmFromPayment()).toBe(false);
     expect(order.status).toBe(OrderStatusEnum.PROCESSING);
+  });
+
+  it('emits placement and cancellation events only for their aggregate changes', () => {
+    const order = createOrder();
+    expect(order.pullDomainEvents()).toEqual([expect.any(OrderPlacedEvent)]);
+
+    order.cancel(false);
+    expect(order.pullDomainEvents()).toEqual([expect.any(OrderCancelledEvent)]);
+  });
+
+  it('rejects invalid amounts, item lists, and shipping contacts', () => {
+    expect(() =>
+      OrderFactory.create({
+        userId: '',
+        status: OrderStatusEnum.PENDING,
+        subtotal: 0,
+        discountAmount: 0,
+        total: 0,
+        paymentStatus: PaymentStatusEnum.PENDING,
+        shippingAddress: {
+          fullName: 'Tester',
+          phone: '0900000000',
+          addressLine: '1 Main',
+          ward: 'Ward',
+          district: 'District',
+          city: 'City',
+        },
+        couponId: null,
+        note: null,
+        items: [],
+      }),
+    ).toThrow('Order user is required');
+    expect(() =>
+      OrderFactory.create({
+        userId: 'user-1',
+        status: OrderStatusEnum.PENDING,
+        subtotal: 100,
+        discountAmount: 20,
+        total: 90,
+        paymentStatus: PaymentStatusEnum.PENDING,
+        shippingAddress: {
+          fullName: '',
+          phone: '',
+          addressLine: '1 Main',
+          ward: 'Ward',
+          district: 'District',
+          city: 'City',
+        },
+        couponId: null,
+        note: null,
+        items: [
+          OrderItemFactory.create({
+            productId: 'product-1',
+            quantity: 1,
+            unitPrice: 100,
+            totalPrice: 100,
+            snapshot: { name: 'Product', sku: null, imageUrl: null },
+          }),
+        ],
+      }),
+    ).toThrow('Order total must equal subtotal minus discount');
   });
 });
