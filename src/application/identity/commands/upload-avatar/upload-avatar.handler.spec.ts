@@ -1,9 +1,14 @@
-import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UploadAvatarHandler } from './upload-avatar.handler';
 import { UploadAvatarCommand } from './upload-avatar.command';
 import { USER_REPOSITORY_PORT } from '@/application/identity/ports/user/user.repository.port.token';
 import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
+import { FileStorageInvalidFileError } from '@/application/shared/ports/file-storage/file-storage.port';
 import { User } from '@/domain/entities/user';
 
 describe('UploadAvatarHandler', () => {
@@ -87,6 +92,13 @@ describe('UploadAvatarHandler', () => {
     await expect(handler.execute(command)).rejects.toThrow(
       ServiceUnavailableException,
     );
+  });
+
+  it('reports an invalid image instead of a storage outage', async () => {
+    userRepository.findById.mockResolvedValue({ id: command.userId } as User);
+    fileStorage.upload.mockRejectedValue(new FileStorageInvalidFileError());
+
+    await expect(handler.execute(command)).rejects.toThrow(BadRequestException);
   });
 
   it('deletes the newly uploaded avatar when persistence fails', async () => {

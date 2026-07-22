@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Logger,
   NotFoundException,
@@ -11,6 +12,7 @@ import type {
   FileStoragePort,
   StoredFile,
 } from '@/application/shared/ports/file-storage/file-storage.port';
+import { FileStorageInvalidFileError } from '@/application/shared/ports/file-storage/file-storage.port';
 import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
 import { UploadAvatarCommand } from './upload-avatar.command';
 import { UploadAvatarResult } from './upload-avatar.result';
@@ -40,7 +42,12 @@ export class UploadAvatarHandler
         command.buffer,
         `avatars/${command.userId}`,
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof FileStorageInvalidFileError) {
+        throw new BadRequestException(
+          'The selected image is corrupt or uses an unsupported encoding',
+        );
+      }
       throw new ServiceUnavailableException('Avatar storage is unavailable');
     }
 

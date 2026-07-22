@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Logger,
@@ -12,6 +13,7 @@ import type {
   FileStoragePort,
   StoredFile,
 } from '@/application/shared/ports/file-storage/file-storage.port';
+import { FileStorageInvalidFileError } from '@/application/shared/ports/file-storage/file-storage.port';
 import { FILE_STORAGE_PORT } from '@/application/shared/ports/file-storage/file-storage.port.token';
 import { ProductImageFactory } from '@/domain/factories/product-image.factory';
 import { UploadProductImageCommand } from './upload-product-image.command';
@@ -42,7 +44,12 @@ export class UploadProductImageHandler
         command.buffer,
         `products/${product.id}`,
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof FileStorageInvalidFileError) {
+        throw new BadRequestException(
+          'The selected image is corrupt or uses an unsupported encoding',
+        );
+      }
       throw new ServiceUnavailableException(
         'Product image storage is unavailable',
       );
