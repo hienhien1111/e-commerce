@@ -6,6 +6,7 @@ export type PaymentAttempt = {
   providerOrderId: string;
   requestId: string;
   startedAt: string;
+  phase?: 'INITIATING' | 'READY' | 'FAILED';
   resultCode?: number;
   message?: string;
 };
@@ -111,6 +112,22 @@ export class Payment extends BaseDomainModel<PaymentProps> {
     );
   }
 
+  isInitiating(now = new Date(), timeoutMs = 60_000): boolean {
+    const latest = this.props.metadata.attempts.at(-1);
+    if (
+      this.status !== PaymentStatusEnum.PENDING ||
+      this.payUrl !== null ||
+      latest?.phase !== 'INITIATING'
+    ) {
+      return false;
+    }
+    return now.getTime() - new Date(latest.startedAt).getTime() < timeoutMs;
+  }
+
+  get latestAttempt(): PaymentAttempt | undefined {
+    return this.props.metadata.attempts.at(-1);
+  }
+
   startAttempt(input: {
     providerOrderId: string;
     requestId: string;
@@ -138,6 +155,7 @@ export class Payment extends BaseDomainModel<PaymentProps> {
           providerOrderId: input.providerOrderId,
           requestId: input.requestId,
           startedAt: (input.now ?? new Date()).toISOString(),
+          phase: 'INITIATING',
         },
       ],
     };
@@ -155,6 +173,12 @@ export class Payment extends BaseDomainModel<PaymentProps> {
     this.props.payUrl = input.payUrl;
     this.props.qrCodeUrl = input.qrCodeUrl;
     this.props.deeplink = input.deeplink;
+    this.props.metadata = {
+      ...this.props.metadata,
+      attempts: this.props.metadata.attempts.map((attempt, index, all) =>
+        index === all.length - 1 ? { ...attempt, phase: 'READY' } : attempt,
+      ),
+    };
     this.touch();
   }
 
@@ -170,6 +194,7 @@ export class Payment extends BaseDomainModel<PaymentProps> {
               ...attempt,
               ...(message ? { message } : {}),
               ...(resultCode !== undefined ? { resultCode } : {}),
+              phase: 'FAILED',
             }
           : attempt,
       ),

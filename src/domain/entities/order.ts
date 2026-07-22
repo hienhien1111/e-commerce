@@ -2,6 +2,7 @@ import { BaseDomainModel } from '@/shared/domain/base-domain-model';
 import { OrderItem } from '@/domain/entities/order-item';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 import { OrderCancelledEvent } from '@/domain/events/order-cancelled.event';
 import { OrderPlacedEvent } from '@/domain/events/order-placed.event';
 
@@ -27,6 +28,7 @@ export type OrderProps = {
   subtotal: number;
   discountAmount: number;
   total: number;
+  paymentMethod: PaymentMethodEnum;
   paymentStatus: PaymentStatusEnum;
   shippingAddress: ShippingAddress;
   couponId: string | null;
@@ -121,6 +123,9 @@ export class Order extends BaseDomainModel<OrderProps> {
   get paymentStatus(): PaymentStatusEnum {
     return this.props.paymentStatus;
   }
+  get paymentMethod(): PaymentMethodEnum {
+    return this.props.paymentMethod;
+  }
   get shippingAddress(): ShippingAddress {
     return this.props.shippingAddress;
   }
@@ -192,6 +197,7 @@ export class Order extends BaseDomainModel<OrderProps> {
       subtotal: this.subtotal,
       discountAmount: this.discountAmount,
       total: this.total,
+      paymentMethod: this.paymentMethod,
       paymentStatus: this.paymentStatus,
       shippingAddress: this.shippingAddress,
       couponId: this.couponId,

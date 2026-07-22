@@ -142,11 +142,22 @@ export class MomoPaymentGateway implements PaymentGatewayPort {
       this.logger.warn({ err: error }, 'MoMo initiation request failed');
       throw new ServiceUnavailableException('MoMo payment is unavailable');
     }
+    const body = (await response
+      .json()
+      .catch(() => ({}))) as MomoCreateResponse;
     if (!response.ok) {
-      this.logger.warn({ status: response.status }, 'MoMo initiation rejected');
-      throw new ServiceUnavailableException('MoMo payment is unavailable');
+      this.logger.warn(
+        { status: response.status, resultCode: body.resultCode },
+        'MoMo initiation rejected',
+      );
+      return {
+        resultCode: body.resultCode ?? -1,
+        message: body.message ?? 'MoMo rejected the payment request',
+        payUrl: null,
+        qrCodeUrl: null,
+        deeplink: null,
+      };
     }
-    const body = (await response.json()) as MomoCreateResponse;
     return {
       resultCode: body.resultCode ?? -1,
       message: body.message ?? 'MoMo did not return a payment session',

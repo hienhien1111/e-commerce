@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 
 class ShippingAddressDto {
   @ApiProperty() fullName!: string;
@@ -15,11 +16,13 @@ class OrderItemSnapshotDto {
   @ApiProperty() name!: string;
   @ApiPropertyOptional({ nullable: true }) sku!: string | null;
   @ApiPropertyOptional({ nullable: true }) imageUrl!: string | null;
+  @ApiPropertyOptional({ nullable: true }) variantLabel!: string | null;
 }
 
 class OrderItemDto {
   @ApiProperty() id!: string;
   @ApiProperty() productId!: string;
+  @ApiProperty() variantId!: string;
   @ApiProperty() quantity!: number;
   @ApiProperty() unitPrice!: number;
   @ApiProperty() totalPrice!: number;
@@ -40,6 +43,7 @@ export class OrderDto {
   @ApiProperty() subtotal!: number;
   @ApiProperty() discountAmount!: number;
   @ApiProperty() total!: number;
+  @ApiProperty({ enum: PaymentMethodEnum }) paymentMethod!: PaymentMethodEnum;
   @ApiProperty({ enum: PaymentStatusEnum }) paymentStatus!: PaymentStatusEnum;
   @ApiProperty({ type: ShippingAddressDto })
   shippingAddress!: ShippingAddressDto;

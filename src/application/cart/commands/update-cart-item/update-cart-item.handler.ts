@@ -22,10 +22,10 @@ export class UpdateCartItemHandler
     const cart = await this.cartRepository.findByUserId(command.userId);
     if (!cart) throw new NotFoundException('Cart item not found');
     if (command.quantity > 0) {
-      await this.products.assertSellable(command.productId, command.quantity);
+      await this.products.assertSellable(command.variantId, command.quantity);
     }
     try {
-      cart.updateItem(command.productId, command.quantity);
+      cart.updateItem(command.variantId, command.quantity);
     } catch (error) {
       if (error instanceof CartItemNotFoundException) {
         throw new NotFoundException('Cart item not found');

@@ -9,6 +9,7 @@ import { OrderFactory } from '@/domain/factories/order.factory';
 import { OrderItemFactory } from '@/domain/factories/order-item.factory';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 
 export type PrismaOrderWithRelations = PrismaOrder & {
   items: PrismaOrderItem[];
@@ -24,6 +25,7 @@ export class OrderMapper {
       subtotal: raw.subtotal.toNumber(),
       discountAmount: raw.discountAmount.toNumber(),
       total: raw.total.toNumber(),
+      paymentMethod: raw.paymentMethod as PaymentMethodEnum,
       paymentStatus: raw.paymentStatus as PaymentStatusEnum,
       shippingAddress: raw.shippingAddress as unknown as ShippingAddress,
       couponId: raw.couponId,
@@ -32,6 +34,7 @@ export class OrderMapper {
         OrderItemFactory.create({
           id: item.id,
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           unitPrice: item.unitPrice.toNumber(),
           totalPrice: item.totalPrice.toNumber(),

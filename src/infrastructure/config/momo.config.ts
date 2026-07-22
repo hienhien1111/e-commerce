@@ -36,15 +36,22 @@ class EnvironmentVariablesValidator {
   MOMO_PAYMENT_EXPIRY_MINUTES: number;
 }
 
+const optionalTrimmed = (value: string | undefined): string | undefined => {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+};
+
 export default registerAs<MomoConfig>('momo', () => {
   validateConfig(process.env, EnvironmentVariablesValidator);
   return {
-    partnerCode: process.env.MOMO_PARTNER_CODE,
-    accessKey: process.env.MOMO_ACCESS_KEY,
-    secretKey: process.env.MOMO_SECRET_KEY,
-    endpoint: process.env.MOMO_ENDPOINT ?? 'https://test-payment.momo.vn',
-    ipnUrl: process.env.MOMO_IPN_URL,
-    redirectUrl: process.env.MOMO_REDIRECT_URL,
+    partnerCode: optionalTrimmed(process.env.MOMO_PARTNER_CODE),
+    accessKey: optionalTrimmed(process.env.MOMO_ACCESS_KEY),
+    secretKey: optionalTrimmed(process.env.MOMO_SECRET_KEY),
+    endpoint:
+      optionalTrimmed(process.env.MOMO_ENDPOINT) ??
+      'https://test-payment.momo.vn',
+    ipnUrl: optionalTrimmed(process.env.MOMO_IPN_URL),
+    redirectUrl: optionalTrimmed(process.env.MOMO_REDIRECT_URL),
     paymentExpiryMinutes: Number(process.env.MOMO_PAYMENT_EXPIRY_MINUTES ?? 15),
   };
 });

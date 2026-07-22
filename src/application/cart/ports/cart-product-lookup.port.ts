@@ -1,5 +1,8 @@
 import { CartProductSnapshot } from '@/application/cart/types/cart.types';
 
 export interface CartProductLookupPort {
-  findByIds(ids: string[]): Promise<CartProductSnapshot[]>;
+  findByIds(variantIds: string[]): Promise<CartProductSnapshot[]>;
+  findSingleActiveByProductId(
+    productId: string,
+  ): Promise<CartProductSnapshot | null>;
 }

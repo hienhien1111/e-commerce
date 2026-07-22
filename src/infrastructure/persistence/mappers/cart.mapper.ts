@@ -18,6 +18,7 @@ export class CartMapper {
         CartItemFactory.reconstitute({
           id: item.id,
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,

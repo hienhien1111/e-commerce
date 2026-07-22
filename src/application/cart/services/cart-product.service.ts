@@ -16,10 +16,10 @@ export class CartProductService {
   ) {}
 
   async assertSellable(
-    productId: string,
+    variantId: string,
     quantity: number,
   ): Promise<CartProductSnapshot> {
-    const product = (await this.productLookup.findByIds([productId]))[0];
+    const product = (await this.productLookup.findByIds([variantId]))[0];
     if (!product || product.deletedAt || !product.isActive) {
       throw new NotFoundException('Product not found');
     }
@@ -27,5 +27,17 @@ export class CartProductService {
       throw new ConflictException('Insufficient product stock');
     }
     return product;
+  }
+
+  async resolveProduct(productId: string): Promise<CartProductSnapshot> {
+    const variant =
+      await this.productLookup.findSingleActiveByProductId(productId);
+    if (!variant || variant.deletedAt || !variant.isActive) {
+      throw new NotFoundException('Product not found');
+    }
+    const candidates = await this.productLookup.findByIds([variant.variantId]);
+    if (candidates.length !== 1)
+      throw new NotFoundException('Product not found');
+    return candidates[0];
   }
 }

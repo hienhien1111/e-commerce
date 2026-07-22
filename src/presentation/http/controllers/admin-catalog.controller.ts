@@ -1,4 +1,12 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  NotFoundException,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
@@ -14,13 +22,32 @@ import {
   QueryAdminCategoryDto,
   QueryAdminProductDto,
 } from '@/presentation/http/dtos/query-admin-catalog.dto';
+import type { ProductRepositoryPort } from '@/application/catalog/ports/product.repository.port';
+import { PRODUCT_REPOSITORY_PORT } from '@/application/catalog/ports/product.repository.port.token';
+import { ProductDto } from '@/presentation/http/dtos/product.dto';
 
 @ApiTags('Admin Catalog')
 @ApiCookieAuth('access_token')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller({ path: 'admin', version: '1' })
 export class AdminCatalogController {
-  constructor(private readonly queries: QueryBus) {}
+  constructor(
+    private readonly queries: QueryBus,
+    @Inject(PRODUCT_REPOSITORY_PORT)
+    private readonly productsRepository: ProductRepositoryPort,
+  ) {}
+
+  @Get('products/:id')
+  @CheckPermissions({
+    action: PermissionActionEnum.READ,
+    subject: PermissionSubjectEnum.PRODUCT,
+  })
+  @ApiOkResponse({ type: ProductDto })
+  async product(@Param('id') id: string) {
+    const product = await this.productsRepository.findById(id);
+    if (!product) throw new NotFoundException('Product not found');
+    return product;
+  }
 
   @Get('products')
   @CheckPermissions({

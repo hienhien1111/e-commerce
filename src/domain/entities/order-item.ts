@@ -4,10 +4,12 @@ export type OrderItemSnapshot = {
   name: string;
   sku: string | null;
   imageUrl: string | null;
+  variantLabel: string | null;
 };
 
 export type OrderItemProps = {
   productId: string;
+  variantId: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -18,6 +20,7 @@ export class OrderItem extends BaseDomainModel<OrderItemProps> {
   private constructor(props: OrderItemProps, id: string) {
     super(props, id);
     if (!props.productId) throw new Error('Order item product is required');
+    if (!props.variantId) throw new Error('Order item variant is required');
     if (!Number.isInteger(props.quantity) || props.quantity <= 0) {
       throw new Error('Order item quantity must be a positive integer');
     }
@@ -38,6 +41,9 @@ export class OrderItem extends BaseDomainModel<OrderItemProps> {
   }
   get quantity(): number {
     return this.props.quantity;
+  }
+  get variantId(): string {
+    return this.props.variantId;
   }
   get unitPrice(): number {
     return this.props.unitPrice;

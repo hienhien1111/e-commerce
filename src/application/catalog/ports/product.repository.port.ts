@@ -1,4 +1,5 @@
 import { Product } from '@/domain/entities/product';
+import { ProductVariant } from '@/domain/entities/product-variant';
 import { NullableType } from '@/utils/types/nullable.type';
 import {
   ProductFilters,
@@ -24,4 +25,7 @@ export interface ProductRepositoryPort {
     limit: number;
   }): Promise<ProductPage>;
   existsByCategoryId(categoryId: string): Promise<boolean>;
+  createVariant(variant: ProductVariant): Promise<ProductVariant>;
+  saveVariant(variant: ProductVariant): Promise<ProductVariant>;
+  softDeleteVariant(variant: ProductVariant): Promise<void>;
 }

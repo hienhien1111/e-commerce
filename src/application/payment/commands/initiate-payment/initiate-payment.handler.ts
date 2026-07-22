@@ -16,14 +16,30 @@ import { ORDER_REPOSITORY_PORT } from '@/application/order/ports/order.repositor
 import type { AllConfigType } from '@/config/config.type';
 import { Payment } from '@/domain/entities/payment';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
-import { PaymentFactory } from '@/domain/factories/payment.factory';
 import { PaymentInitiatedEvent } from '@/domain/events/payment-initiated.event';
 import { PaymentFailedEvent } from '@/domain/events/payment-failed.event';
 import { InitiatePaymentCommand } from './initiate-payment.command';
 
 const MOMO_MIN_AMOUNT = 1_000;
 const MOMO_MAX_AMOUNT = 50_000_000;
+
+export function toMomoProviderFailure(resultCode: number, rawMessage?: string) {
+  if (/signature|chữ\s*ký|chu\s*ky/i.test(rawMessage ?? '')) {
+    return {
+      code: 'MOMO_SIGNATURE_INVALID',
+      retryable: false,
+      message:
+        'MoMo không xác thực được chữ ký. Kiểm tra Partner Code, Access Key và Secret Key của cùng một môi trường Sandbox.',
+    };
+  }
+  return {
+    code: 'MOMO_PROVIDER_REJECTED',
+    retryable: true,
+    message: `MoMo từ chối tạo phiên thanh toán (mã ${resultCode}).`,
+  };
+}
 
 @CommandHandler(InitiatePaymentCommand)
 export class InitiatePaymentHandler
@@ -55,79 +71,34 @@ export class InitiatePaymentHandler
     if (order.paymentStatus === PaymentStatusEnum.PAID) {
       throw new UnprocessableEntityException('Order is already paid');
     }
+    if (order.paymentMethod !== PaymentMethodEnum.MOMO) {
+      throw new UnprocessableEntityException({
+        code: 'PAYMENT_METHOD_NOT_MOMO',
+        retryable: false,
+        message: 'Đơn hàng này được chọn thanh toán khi nhận hàng.',
+      });
+    }
     if (order.total < MOMO_MIN_AMOUNT || order.total > MOMO_MAX_AMOUNT) {
       throw new UnprocessableEntityException(
         `MoMo amount must be between ${MOMO_MIN_AMOUNT} and ${MOMO_MAX_AMOUNT} VND`,
       );
     }
 
+    const momo = this.config.getOrThrow('momo', { infer: true });
     const now = new Date();
-    const existing = await this.payments.findByOrderId(order.id);
-    if (existing?.status === PaymentStatusEnum.PAID) {
+    const reservation = await this.payments.reserveMomoInitiation({
+      orderId: order.id,
+      amount: order.total,
+      now,
+      expiresAt: new Date(now.getTime() + momo.paymentExpiryMinutes * 60_000),
+    });
+    if (reservation.payment.status === PaymentStatusEnum.PAID) {
       throw new UnprocessableEntityException('Order is already paid');
     }
-    if (existing?.isReusable(now)) return existing;
-
-    const momo = this.config.getOrThrow('momo', { infer: true });
-    const lastAttempt = existing?.metadata.attempts.at(-1);
-    const continuePendingAttempt =
-      existing?.status === PaymentStatusEnum.PENDING &&
-      existing.expiresAt !== null &&
-      existing.expiresAt > now &&
-      existing.providerOrderId !== null &&
-      lastAttempt !== undefined;
-
-    let payment: Payment;
-    let providerOrderId: string;
-    let requestId: string;
-    if (continuePendingAttempt) {
-      payment = existing;
-      providerOrderId = existing.providerOrderId!;
-      requestId = lastAttempt.requestId;
-    } else {
-      const attempt = (lastAttempt?.attempt ?? 0) + 1;
-      const expiresAt = new Date(
-        now.getTime() + momo.paymentExpiryMinutes * 60_000,
-      );
-      if (existing) {
-        providerOrderId = `momo-${existing.id}-${attempt}`;
-        requestId = `request-${existing.id}-${attempt}`;
-        existing.startAttempt({
-          providerOrderId,
-          requestId,
-          expiresAt,
-          attempt,
-          now,
-        });
-        payment = await this.payments.save(existing);
-      } else {
-        const created = PaymentFactory.create({
-          orderId: order.id,
-          provider: 'momo',
-          amount: order.total,
-          currency: 'VND',
-          status: PaymentStatusEnum.PENDING,
-          providerOrderId: null,
-          providerTransId: null,
-          payUrl: null,
-          qrCodeUrl: null,
-          deeplink: null,
-          metadata: { attempts: [] },
-          expiresAt: null,
-          paidAt: null,
-        });
-        providerOrderId = `momo-${created.id}-${attempt}`;
-        requestId = `request-${created.id}-${attempt}`;
-        created.startAttempt({
-          providerOrderId,
-          requestId,
-          expiresAt,
-          attempt,
-          now,
-        });
-        payment = await this.payments.create(created);
-      }
+    if (reservation.state !== 'INITIATE') {
+      return reservation.payment;
     }
+    const { payment, providerOrderId, requestId } = reservation;
 
     try {
       const session = await this.gateway.initiate({
@@ -167,28 +138,50 @@ export class InitiatePaymentHandler
         ipnUrl: momo.ipnUrl!,
       });
       if (session.resultCode !== 0 || !session.payUrl) {
-        payment.fail(session.message, session.resultCode);
-        const failed = await this.payments.save(payment);
-        await this.eventBus.publish(new PaymentFailedEvent(failed));
-        throw new UnprocessableEntityException(
-          session.message || 'MoMo could not create a payment session',
+        const providerFailure = toMomoProviderFailure(
+          session.resultCode,
+          session.message,
         );
+        const failed = await this.payments.failMomoInitiation({
+          paymentId: payment.id,
+          requestId,
+          message: providerFailure.message,
+          resultCode: session.resultCode,
+        });
+        await this.eventBus.publish(new PaymentFailedEvent(failed));
+        throw new UnprocessableEntityException(providerFailure);
       }
-      payment.recordGatewaySession({
-        payUrl: session.payUrl,
-        qrCodeUrl: session.qrCodeUrl,
-        deeplink: session.deeplink,
+      const saved = await this.payments.completeMomoInitiation({
+        paymentId: payment.id,
+        requestId,
+        session: {
+          payUrl: session.payUrl,
+          qrCodeUrl: session.qrCodeUrl,
+          deeplink: session.deeplink,
+        },
       });
-      const saved = await this.payments.save(payment);
       await this.eventBus.publish(new PaymentInitiatedEvent(saved));
       return saved;
     } catch (error) {
       if (error instanceof UnprocessableEntityException) throw error;
-      payment.fail('MoMo gateway request failed');
-      const failed = await this.payments.save(payment);
+      const failed = await this.payments.failMomoInitiation({
+        paymentId: payment.id,
+        requestId,
+        message: 'MoMo gateway request failed',
+      });
       await this.eventBus.publish(new PaymentFailedEvent(failed));
-      if (error instanceof ServiceUnavailableException) throw error;
-      throw new ServiceUnavailableException('MoMo payment is unavailable');
+      if (error instanceof ServiceUnavailableException) {
+        throw new ServiceUnavailableException({
+          code: 'MOMO_UNAVAILABLE',
+          retryable: true,
+          message: 'Không thể kết nối MoMo. Vui lòng thử lại.',
+        });
+      }
+      throw new ServiceUnavailableException({
+        code: 'MOMO_UNAVAILABLE',
+        retryable: true,
+        message: 'Không thể kết nối MoMo. Vui lòng thử lại.',
+      });
     }
   }
 }

@@ -32,6 +32,9 @@ import { UpdateProductCommand } from '@/application/catalog/commands/update-prod
 import { DeleteProductCommand } from '@/application/catalog/commands/delete-product';
 import { UploadProductImageCommand } from '@/application/catalog/commands/upload-product-image';
 import { DeleteProductImageCommand } from '@/application/catalog/commands/delete-product-image';
+import { CreateProductVariantCommand } from '@/application/catalog/commands/create-product-variant';
+import { UpdateProductVariantCommand } from '@/application/catalog/commands/update-product-variant';
+import { DeleteProductVariantCommand } from '@/application/catalog/commands/delete-product-variant';
 import { GetProductQuery } from '@/application/catalog/queries/get-product';
 import { GetProductsQuery } from '@/application/catalog/queries/get-products';
 import { CheckPermissions } from '@/infrastructure/decorators/check-permissions.decorator';
@@ -44,8 +47,19 @@ import { QueryProductDto } from '@/presentation/http/dtos/query-product.dto';
 import { ProductDto } from '@/presentation/http/dtos/product.dto';
 import { ProductImageDto } from '@/presentation/http/dtos/product-image.dto';
 import { ProductPageDto } from '@/presentation/http/dtos/product-page.dto';
+import { ProductVariantDto } from '@/presentation/http/dtos/product-variant.dto';
+import { CreateProductVariantDto } from '@/presentation/http/dtos/create-product-variant.dto';
+import { UpdateProductVariantDto } from '@/presentation/http/dtos/update-product-variant.dto';
+import { getImageFileFormat } from '@/shared/utils/image-file-signature';
 
-const IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+/**
+ * Browser and operating-system MIME reports are inconsistent for images
+ * (`image/x-png`, `application/octet-stream`, ...). Validate the actual
+ * binary signature instead of rejecting a valid image based on that hint.
+ */
+export function isSupportedProductImage(buffer: Buffer): boolean {
+  return getImageFileFormat(buffer) !== null;
+}
 
 @ApiTags('Catalog products')
 @Controller({ path: 'products', version: '1' })
@@ -125,8 +139,6 @@ export class ProductController {
     FileInterceptor('file', {
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_request, file, callback) =>
-        callback(null, IMAGE_MIME_TYPES.has(file.mimetype)),
     }),
   )
   @ApiCookieAuth('access_token')
@@ -143,9 +155,9 @@ export class ProductController {
     @Param('id') id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    if (!file || !IMAGE_MIME_TYPES.has(file.mimetype)) {
+    if (!file || !isSupportedProductImage(file.buffer)) {
       throw new BadRequestException(
-        'A JPEG, PNG, or WebP image file is required',
+        'A valid JPEG, PNG, or WebP image file is required',
       );
     }
     return this.commandBus.execute(
@@ -164,5 +176,56 @@ export class ProductController {
   @ApiNoContentResponse()
   removeImage(@Param('id') id: string, @Param('imageId') imageId: string) {
     return this.commandBus.execute(new DeleteProductImageCommand(id, imageId));
+  }
+
+  @Post(':id/variants')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @CheckPermissions({
+    action: PermissionActionEnum.UPDATE,
+    subject: PermissionSubjectEnum.PRODUCT,
+  })
+  @ApiCookieAuth('access_token')
+  @ApiCreatedResponse({ type: ProductVariantDto })
+  createVariant(
+    @Param('id') id: string,
+    @Body() body: CreateProductVariantDto,
+  ) {
+    return this.commandBus.execute(new CreateProductVariantCommand(id, body));
+  }
+
+  @Patch(':id/variants/:variantId')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @CheckPermissions({
+    action: PermissionActionEnum.UPDATE,
+    subject: PermissionSubjectEnum.PRODUCT,
+  })
+  @ApiCookieAuth('access_token')
+  @ApiOkResponse({ type: ProductVariantDto })
+  updateVariant(
+    @Param('id') id: string,
+    @Param('variantId') variantId: string,
+    @Body() body: UpdateProductVariantDto,
+  ) {
+    return this.commandBus.execute(
+      new UpdateProductVariantCommand(id, variantId, body),
+    );
+  }
+
+  @Delete(':id/variants/:variantId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @CheckPermissions({
+    action: PermissionActionEnum.UPDATE,
+    subject: PermissionSubjectEnum.PRODUCT,
+  })
+  @ApiCookieAuth('access_token')
+  @ApiNoContentResponse()
+  removeVariant(
+    @Param('id') id: string,
+    @Param('variantId') variantId: string,
+  ) {
+    return this.commandBus.execute(
+      new DeleteProductVariantCommand(id, variantId),
+    );
   }
 }

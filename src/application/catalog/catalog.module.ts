@@ -20,6 +20,9 @@ import { UpdateProductHandler } from '@/application/catalog/commands/update-prod
 import { DeleteProductHandler } from '@/application/catalog/commands/delete-product';
 import { UploadProductImageHandler } from '@/application/catalog/commands/upload-product-image';
 import { DeleteProductImageHandler } from '@/application/catalog/commands/delete-product-image';
+import { CreateProductVariantHandler } from '@/application/catalog/commands/create-product-variant';
+import { UpdateProductVariantHandler } from '@/application/catalog/commands/update-product-variant';
+import { DeleteProductVariantHandler } from '@/application/catalog/commands/delete-product-variant';
 import { GetCategoryHandler } from '@/application/catalog/queries/get-category';
 import { GetCategoriesHandler } from '@/application/catalog/queries/get-categories';
 import { GetProductHandler } from '@/application/catalog/queries/get-product';
@@ -37,6 +40,9 @@ const CommandHandlers = [
   DeleteProductHandler,
   UploadProductImageHandler,
   DeleteProductImageHandler,
+  CreateProductVariantHandler,
+  UpdateProductVariantHandler,
+  DeleteProductVariantHandler,
 ];
 
 const QueryHandlers = [

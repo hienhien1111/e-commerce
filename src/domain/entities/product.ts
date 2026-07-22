@@ -1,6 +1,7 @@
 import { BaseDomainModel } from '@/shared/domain/base-domain-model';
 import { InsufficientStockException } from '@/domain/exceptions/insufficient-stock.exception';
 import { ProductImage } from '@/domain/entities/product-image';
+import { ProductVariant } from '@/domain/entities/product-variant';
 
 export type ProductProps = {
   name: string;
@@ -13,6 +14,7 @@ export type ProductProps = {
   categoryId: string | null;
   isActive: boolean;
   images: ProductImage[];
+  variants: ProductVariant[];
 };
 
 export class Product extends BaseDomainModel<ProductProps> {
@@ -59,6 +61,23 @@ export class Product extends BaseDomainModel<ProductProps> {
     if (this.props.images.length > 5) {
       throw new Error('A product can have at most 5 images');
     }
+    if (this.props.variants.length === 0) {
+      throw new Error('Product requires a default variant');
+    }
+    if (this.props.variants.length > 100) {
+      throw new Error('A product can have at most 100 variants');
+    }
+    const hiddenVariants = this.props.variants.filter(
+      (variant) => variant.label === null && !variant.deletedAt,
+    );
+    if (hiddenVariants.length > 1) {
+      throw new Error('Product can have only one hidden default variant');
+    }
+    if (hiddenVariants.length === 1 && this.props.variants.length > 1) {
+      throw new Error(
+        'Hidden default variant must be labelled before adding variants',
+      );
+    }
   }
 
   get name(): string {
@@ -80,7 +99,10 @@ export class Product extends BaseDomainModel<ProductProps> {
     return this.props.stock;
   }
   get sku(): string | null {
-    return this.props.sku;
+    // SKU belongs to the sellable variant. Keep the Product column as a
+    // backwards-compatible projection only; the HTTP model exposes the
+    // effective SKU for simple products.
+    return this.activeVariants.length === 1 ? this.activeVariants[0].sku : null;
   }
   get categoryId(): string | null {
     return this.props.categoryId;
@@ -93,6 +115,25 @@ export class Product extends BaseDomainModel<ProductProps> {
   }
   get deletedAt(): Date | null {
     return this._deletedAt;
+  }
+  get variants(): readonly ProductVariant[] {
+    return this.props.variants;
+  }
+  get activeVariants(): readonly ProductVariant[] {
+    return this.props.variants.filter(
+      (variant) => variant.isActive && !variant.deletedAt,
+    );
+  }
+  get hasVariants(): boolean {
+    return this.activeVariants.some((variant) => variant.label !== null);
+  }
+  get priceRange(): { min: number; max: number } {
+    const variants = this.activeVariants;
+    const prices = variants.map((variant) => variant.price);
+    return {
+      min: prices.length ? Math.min(...prices) : this.price,
+      max: prices.length ? Math.max(...prices) : this.price,
+    };
   }
 
   update(input: Partial<Omit<ProductProps, 'images'>>): void {
@@ -123,6 +164,58 @@ export class Product extends BaseDomainModel<ProductProps> {
     }
     this.props.images.push(image);
     this.touch();
+  }
+
+  addVariant(variant: ProductVariant): void {
+    if (variant.productId !== this.id) {
+      throw new Error('Variant does not belong to this product');
+    }
+    if (this.props.variants.length >= 100) {
+      throw new Error('A product can have at most 100 variants');
+    }
+    if (
+      this.props.variants.some((item) => item.label === null && !item.deletedAt)
+    ) {
+      throw new Error(
+        'Hidden default variant must be labelled before adding variants',
+      );
+    }
+    this.props.variants.push(variant);
+    this.syncProjection();
+    this.touch();
+  }
+
+  findVariant(variantId: string): ProductVariant | null {
+    return (
+      this.props.variants.find((variant) => variant.id === variantId) ?? null
+    );
+  }
+
+  removeVariant(variantId: string): ProductVariant | null {
+    const variant = this.findVariant(variantId);
+    if (!variant || variant.deletedAt) return null;
+    if (this.props.variants.filter((item) => !item.deletedAt).length <= 1) {
+      throw new Error('Product requires at least one variant');
+    }
+    variant.softDelete();
+    this.syncProjection();
+    this.touch();
+    return variant;
+  }
+
+  syncProjection(): void {
+    const active = this.activeVariants;
+    if (!active.length) return;
+    const lowest = [...active].sort(
+      (left, right) => left.price - right.price,
+    )[0];
+    this.props.price = lowest.price;
+    this.props.comparePrice = lowest.comparePrice;
+    this.props.stock = active.reduce(
+      (total, variant) => total + variant.stock,
+      0,
+    );
+    this.props.sku = active.length === 1 ? active[0].sku : null;
   }
 
   removeImage(imageId: string): ProductImage | null {
@@ -186,6 +279,9 @@ export class Product extends BaseDomainModel<ProductProps> {
       categoryId: this.categoryId,
       isActive: this.isActive,
       images: this.images.map((image) => image.toJSON()),
+      hasVariants: this.hasVariants,
+      priceRange: this.priceRange,
+      variants: this.variants.map((variant) => variant.toJSON()),
       deletedAt: this.deletedAt,
     };
   }

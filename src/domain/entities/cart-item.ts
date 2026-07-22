@@ -1,6 +1,10 @@
 import { BaseDomainModel } from '@/shared/domain/base-domain-model';
 
-export type CartItemProps = { productId: string; quantity: number };
+export type CartItemProps = {
+  productId: string;
+  variantId: string;
+  quantity: number;
+};
 
 export class CartItem extends BaseDomainModel<CartItemProps> {
   private constructor(
@@ -24,6 +28,7 @@ export class CartItem extends BaseDomainModel<CartItemProps> {
 
   private validate(): void {
     if (!this.props.productId) throw new Error('Cart item product is required');
+    if (!this.props.variantId) throw new Error('Cart item variant is required');
     if (!Number.isInteger(this.props.quantity) || this.props.quantity <= 0) {
       throw new Error('Cart item quantity must be a positive integer');
     }
@@ -36,6 +41,9 @@ export class CartItem extends BaseDomainModel<CartItemProps> {
   get quantity(): number {
     return this.props.quantity;
   }
+  get variantId(): string {
+    return this.props.variantId;
+  }
 
   setQuantity(quantity: number): void {
     this.props.quantity = quantity;
@@ -47,6 +55,7 @@ export class CartItem extends BaseDomainModel<CartItemProps> {
     return {
       ...super.toJSON(),
       productId: this.productId,
+      variantId: this.variantId,
       quantity: this.quantity,
     };
   }

@@ -54,7 +54,7 @@ export class Cart extends BaseDomainModel<CartProps> {
 
   addItem(item: CartItem): void {
     const existing = this.props.items.find(
-      (candidate) => candidate.productId === item.productId,
+      (candidate) => candidate.variantId === item.variantId,
     );
     if (existing) {
       existing.setQuantity(existing.quantity + item.quantity);
@@ -64,24 +64,24 @@ export class Cart extends BaseDomainModel<CartProps> {
     this.touch();
   }
 
-  updateItem(productId: string, quantity: number): void {
+  updateItem(variantId: string, quantity: number): void {
     if (quantity === 0) {
-      this.removeItem(productId);
+      this.removeItem(variantId);
       return;
     }
     const item = this.props.items.find(
-      (candidate) => candidate.productId === productId,
+      (candidate) => candidate.variantId === variantId,
     );
-    if (!item) throw new CartItemNotFoundException(productId);
+    if (!item) throw new CartItemNotFoundException(variantId);
     item.setQuantity(quantity);
     this.touch();
   }
 
-  removeItem(productId: string): void {
+  removeItem(variantId: string): void {
     const index = this.props.items.findIndex(
-      (candidate) => candidate.productId === productId,
+      (candidate) => candidate.variantId === variantId,
     );
-    if (index < 0) throw new CartItemNotFoundException(productId);
+    if (index < 0) throw new CartItemNotFoundException(variantId);
     this.props.items.splice(index, 1);
     if (this.props.items.length === 0) this.props.couponId = null;
     this.touch();

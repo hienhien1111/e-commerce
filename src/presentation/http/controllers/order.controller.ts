@@ -20,10 +20,14 @@ import {
 import { CurrentUser } from '@/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/infrastructure/strategies/jwt.strategy';
 import { PlaceOrderCommand } from '@/application/order/commands/place-order';
+import { PlaceBuyNowOrderCommand } from '@/application/order/commands/place-buy-now-order';
 import { CancelOrderCommand } from '@/application/order/commands/cancel-order';
 import { GetOrderQuery } from '@/application/order/queries/get-order';
 import { GetOrdersQuery } from '@/application/order/queries/get-orders';
-import { CreateOrderDto } from '@/presentation/http/dtos/create-order.dto';
+import {
+  CreateBuyNowOrderDto,
+  CreateOrderDto,
+} from '@/presentation/http/dtos/create-order.dto';
 import { QueryOrderDto } from '@/presentation/http/dtos/query-order.dto';
 import { OrderDto, OrderPageDto } from '@/presentation/http/dtos/order.dto';
 
@@ -41,7 +45,26 @@ export class OrderController {
   @ApiCreatedResponse({ type: OrderDto })
   place(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateOrderDto) {
     return this.commands.execute(
-      new PlaceOrderCommand(user.id, body.shippingAddress),
+      new PlaceOrderCommand(user.id, body.shippingAddress, body.paymentMethod),
+    );
+  }
+
+  @Post('buy-now')
+  @ApiCreatedResponse({ type: OrderDto })
+  buyNow(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: CreateBuyNowOrderDto,
+  ) {
+    return this.commands.execute(
+      new PlaceBuyNowOrderCommand(
+        user.id,
+        body.productId,
+        body.variantId,
+        body.quantity,
+        body.couponCode,
+        body.shippingAddress,
+        body.paymentMethod,
+      ),
     );
   }
 

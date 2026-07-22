@@ -154,6 +154,9 @@ async function seedDevelopmentCatalog() {
   for (const [categoryIndex, category] of categoryRows.entries()) {
     for (let index = 1; index <= 3; index += 1) {
       const slug = `demo-${categories[categoryIndex][1]}-${index}`;
+      const price = 100000 + categoryIndex * 50000 + index * 10000;
+      const comparePrice = 150000 + categoryIndex * 50000 + index * 10000;
+      const sku = `DEMO-${categoryIndex + 1}-${index}`;
       const product = await prisma.product.upsert({
         where: { slug },
         create: {
@@ -161,23 +164,51 @@ async function seedDevelopmentCatalog() {
           name: `${categories[categoryIndex][0]} mẫu ${index}`,
           slug,
           description: `Sản phẩm demo thuộc nhóm ${categories[categoryIndex][0]}.`,
-          price: 100000 + categoryIndex * 50000 + index * 10000,
-          comparePrice: 150000 + categoryIndex * 50000 + index * 10000,
+          price,
+          comparePrice,
           stock: 20,
-          sku: `DEMO-${categoryIndex + 1}-${index}`,
+          sku: null,
           categoryId: category.id,
           isActive: true,
         },
         update: {
           name: `${categories[categoryIndex][0]} mẫu ${index}`,
-          price: 100000 + categoryIndex * 50000 + index * 10000,
-          comparePrice: 150000 + categoryIndex * 50000 + index * 10000,
+          price,
+          comparePrice,
           stock: 20,
           categoryId: category.id,
           isActive: true,
           deletedAt: null,
         },
       });
+      const defaultVariant = await prisma.productVariant.findFirst({
+        where: { productId: product.id, label: null, deletedAt: null },
+      });
+      if (defaultVariant) {
+        await prisma.productVariant.update({
+          where: { id: defaultVariant.id },
+          data: {
+            sku,
+            price,
+            comparePrice,
+            stock: 20,
+            isActive: true,
+            deletedAt: null,
+          },
+        });
+      } else {
+        await prisma.productVariant.create({
+          data: {
+            id: generateUuidV7(),
+            productId: product.id,
+            sku,
+            price,
+            comparePrice,
+            stock: 20,
+            isActive: true,
+          },
+        });
+      }
       const publicId = `seed/${slug}`;
       const image = await prisma.productImage.findFirst({
         where: { productId: product.id, publicId },

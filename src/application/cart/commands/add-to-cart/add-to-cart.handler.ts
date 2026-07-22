@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { BadRequestException, Inject } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import type { CartRepositoryPort } from '@/application/cart/ports/cart.repository.port';
 import { CART_REPOSITORY_PORT } from '@/application/cart/ports/cart.repository.port.token';
@@ -19,11 +19,19 @@ export class AddToCartHandler implements ICommandHandler<AddToCartCommand> {
 
   async execute(command: AddToCartCommand) {
     const existing = await this.cartRepository.findByUserId(command.userId);
+    const resolved = command.variantId
+      ? await this.products.assertSellable(command.variantId, command.quantity)
+      : command.productId
+        ? await this.products.resolveProduct(command.productId)
+        : null;
+    if (!resolved) {
+      throw new BadRequestException('Product or variant is required');
+    }
     const currentQuantity =
-      existing?.items.find((item) => item.productId === command.productId)
+      existing?.items.find((item) => item.variantId === resolved.variantId)
         ?.quantity ?? 0;
     await this.products.assertSellable(
-      command.productId,
+      resolved.variantId,
       currentQuantity + command.quantity,
     );
     const cart =
@@ -31,7 +39,8 @@ export class AddToCartHandler implements ICommandHandler<AddToCartCommand> {
       CartFactory.create({ userId: command.userId, couponId: null, items: [] });
     cart.addItem(
       CartItemFactory.create({
-        productId: command.productId,
+        productId: resolved.id,
+        variantId: resolved.variantId,
         quantity: command.quantity,
       }),
     );

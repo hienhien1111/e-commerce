@@ -11,6 +11,7 @@ import { Payment } from '@/domain/entities/payment';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentMapper } from '@/infrastructure/persistence/mappers/payment.mapper';
+import { PaymentFactory } from '@/domain/factories/payment.factory';
 import {
   OrderMapper,
   PrismaOrderWithRelations,
@@ -46,6 +47,127 @@ export class PrismaPaymentRepository
       data: this.toPersistence(payment),
     });
     return PaymentMapper.toDomain(saved);
+  }
+
+  async reserveMomoInitiation(input: {
+    orderId: string;
+    amount: number;
+    expiresAt: Date;
+    now: Date;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "orders" WHERE "id" = ${input.orderId} FOR UPDATE`;
+      const row = await tx.payment.findUnique({
+        where: { orderId: input.orderId },
+      });
+      let payment = row ? PaymentMapper.toDomain(row) : null;
+      if (payment?.status === PaymentStatusEnum.PAID) {
+        return { state: 'REUSE' as const, payment };
+      }
+      if (payment?.isReusable(input.now)) {
+        return { state: 'REUSE' as const, payment };
+      }
+      if (payment?.isInitiating(input.now)) {
+        return { state: 'IN_PROGRESS' as const, payment };
+      }
+
+      const attempt = (payment?.latestAttempt?.attempt ?? 0) + 1;
+      if (!payment) {
+        payment = PaymentFactory.create({
+          orderId: input.orderId,
+          provider: 'momo',
+          amount: input.amount,
+          currency: 'VND',
+          status: PaymentStatusEnum.PENDING,
+          providerOrderId: null,
+          providerTransId: null,
+          payUrl: null,
+          qrCodeUrl: null,
+          deeplink: null,
+          metadata: { attempts: [] },
+          expiresAt: null,
+          paidAt: null,
+        });
+      }
+      const providerOrderId = `momo-${payment.id}-${attempt}`;
+      const requestId = `request-${payment.id}-${attempt}`;
+      payment.startAttempt({
+        providerOrderId,
+        requestId,
+        expiresAt: input.expiresAt,
+        attempt,
+        now: input.now,
+      });
+      const persisted = row
+        ? await tx.payment.update({
+            where: { id: payment.id },
+            data: this.toPersistence(payment),
+          })
+        : await tx.payment.create({ data: this.toPersistence(payment) });
+      return {
+        state: 'INITIATE' as const,
+        payment: PaymentMapper.toDomain(persisted),
+        providerOrderId,
+        requestId,
+      };
+    });
+  }
+
+  async completeMomoInitiation(input: {
+    paymentId: string;
+    requestId: string;
+    session: {
+      payUrl: string;
+      qrCodeUrl: string | null;
+      deeplink: string | null;
+    };
+  }): Promise<Payment> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "payments" WHERE "id" = ${input.paymentId} FOR UPDATE`;
+      const row = await tx.payment.findUniqueOrThrow({
+        where: { id: input.paymentId },
+      });
+      const payment = PaymentMapper.toDomain(row);
+      if (
+        payment.latestAttempt?.requestId !== input.requestId ||
+        !payment.isInitiating()
+      ) {
+        return payment;
+      }
+      payment.recordGatewaySession(input.session);
+      const saved = await tx.payment.update({
+        where: { id: payment.id },
+        data: this.toPersistence(payment),
+      });
+      return PaymentMapper.toDomain(saved);
+    });
+  }
+
+  async failMomoInitiation(input: {
+    paymentId: string;
+    requestId: string;
+    message: string;
+    resultCode?: number;
+  }): Promise<Payment> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "payments" WHERE "id" = ${input.paymentId} FOR UPDATE`;
+      const row = await tx.payment.findUniqueOrThrow({
+        where: { id: input.paymentId },
+      });
+      const payment = PaymentMapper.toDomain(row);
+      if (
+        payment.latestAttempt?.requestId !== input.requestId ||
+        !payment.isInitiating()
+      ) {
+        return payment;
+      }
+      payment.fail(input.message, input.resultCode);
+      const saved = await tx.payment.update({
+        where: { id: payment.id },
+        data: this.toPersistence(payment),
+      });
+      return PaymentMapper.toDomain(saved);
+    });
   }
 
   async settleMomoWebhook(

@@ -28,9 +28,24 @@ export class UpdateProductHandler
     const product = await this.productRepository.findById(command.id);
     if (!product) throw new NotFoundException('Product not found');
 
-    const update: Partial<Omit<ProductProps, 'images'>> = {
+    const update: Partial<Omit<ProductProps, 'images' | 'variants'>> = {
       ...command.payload,
     };
+    const changesDefaultVariant = [
+      command.payload.price,
+      command.payload.comparePrice,
+      command.payload.stock,
+      command.payload.sku,
+    ].some((value) => value !== undefined);
+    const defaultVariant = product.variants[0];
+    if (
+      changesDefaultVariant &&
+      (product.variants.length !== 1 || defaultVariant?.label !== null)
+    ) {
+      throw new UnprocessableEntityException(
+        'Edit price, SKU, and stock on individual variants for this product',
+      );
+    }
     if (command.payload.name !== undefined) {
       const slug = slugify(command.payload.name);
       if (!slug)
@@ -45,14 +60,13 @@ export class UpdateProductHandler
       update.slug = slug;
     }
     if (command.payload.sku !== undefined) {
-      const sku = command.payload.sku?.trim() || null;
+      const sku = command.payload.sku?.trim().toUpperCase() || null;
       if (sku) {
         const existing = await this.productRepository.findBySku(sku);
         if (existing && existing.id !== product.id) {
           throw new ConflictException('Product SKU already exists');
         }
       }
-      update.sku = sku;
     }
     if (command.payload.description !== undefined) {
       update.description = command.payload.description?.trim() || null;
@@ -68,6 +82,27 @@ export class UpdateProductHandler
       }
     }
 
+    if (changesDefaultVariant && defaultVariant) {
+      defaultVariant.update({
+        ...(command.payload.price !== undefined
+          ? { price: command.payload.price }
+          : {}),
+        ...(command.payload.comparePrice !== undefined
+          ? { comparePrice: command.payload.comparePrice }
+          : {}),
+        ...(command.payload.stock !== undefined
+          ? { stock: command.payload.stock }
+          : {}),
+        ...(command.payload.sku !== undefined
+          ? {
+              sku:
+                command.payload.sku?.trim().toUpperCase() || defaultVariant.sku,
+            }
+          : {}),
+      });
+      await this.productRepository.saveVariant(defaultVariant);
+      product.syncProjection();
+    }
     product.update(update);
     return this.productRepository.save(product);
   }

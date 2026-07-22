@@ -56,31 +56,36 @@ export class CartController {
     @Body() body: AddCartItemDto,
   ) {
     return this.commandBus.execute(
-      new AddToCartCommand(user.id, body.productId, body.quantity),
+      new AddToCartCommand(
+        user.id,
+        body.productId ?? null,
+        body.variantId ?? null,
+        body.quantity,
+      ),
     );
   }
 
-  @Patch('items/:productId')
+  @Patch('items/:variantId')
   @ApiOkResponse({ type: CartDto })
   updateItem(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('productId') productId: string,
+    @Param('variantId') variantId: string,
     @Body() body: UpdateCartItemDto,
   ) {
     return this.commandBus.execute(
-      new UpdateCartItemCommand(user.id, productId, body.quantity),
+      new UpdateCartItemCommand(user.id, variantId, body.quantity),
     );
   }
 
-  @Delete('items/:productId')
+  @Delete('items/:variantId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   removeItem(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('productId') productId: string,
+    @Param('variantId') variantId: string,
   ) {
     return this.commandBus.execute(
-      new RemoveFromCartCommand(user.id, productId),
+      new RemoveFromCartCommand(user.id, variantId),
     );
   }
 

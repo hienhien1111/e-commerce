@@ -6,6 +6,8 @@ class CartProductDto {
   @ApiProperty() slug!: string;
   @ApiProperty() price!: number;
   @ApiProperty() stock!: number;
+  @ApiPropertyOptional({ nullable: true }) label!: string | null;
+  @ApiProperty() sku!: string;
   @ApiPropertyOptional({ nullable: true }) thumbnailUrl!: string | null;
   @ApiProperty() isAvailable!: boolean;
   @ApiPropertyOptional({ nullable: true }) availabilityReason!: string | null;
@@ -14,6 +16,7 @@ class CartProductDto {
 class CartItemDto {
   @ApiProperty() id!: string;
   @ApiProperty() productId!: string;
+  @ApiProperty() variantId!: string;
   @ApiProperty() quantity!: number;
   @ApiProperty({ type: CartProductDto }) product!: CartProductDto;
   @ApiProperty() isAvailable!: boolean;

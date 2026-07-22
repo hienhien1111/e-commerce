@@ -12,8 +12,11 @@ import { Cart } from '@/domain/entities/cart';
 
 const unavailableProduct = (id: string): CartProductSnapshot => ({
   id,
+  variantId: id,
   name: 'Sản phẩm không còn tồn tại',
   slug: '',
+  label: null,
+  sku: '',
   price: 0,
   stock: 0,
   isActive: false,
@@ -44,12 +47,14 @@ export class CartViewService {
       };
     }
     const products = await this.productLookup.findByIds(
-      cart.items.map((item) => item.productId),
+      cart.items.map((item) => item.variantId),
     );
-    const byId = new Map(products.map((product) => [product.id, product]));
+    const byId = new Map(
+      products.map((product) => [product.variantId, product]),
+    );
     const items = cart.items.map((item) => {
       const product =
-        byId.get(item.productId) ?? unavailableProduct(item.productId);
+        byId.get(item.variantId) ?? unavailableProduct(item.variantId);
       const availabilityReason = this.getAvailabilityReason(
         product,
         item.quantity,
@@ -57,6 +62,7 @@ export class CartViewService {
       return {
         id: item.id,
         productId: item.productId,
+        variantId: item.variantId,
         quantity: item.quantity,
         product,
         isAvailable: availabilityReason === null,

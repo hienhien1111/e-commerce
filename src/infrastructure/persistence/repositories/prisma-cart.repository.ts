@@ -32,6 +32,7 @@ export class PrismaCartRepository
           create: cart.items.map((item) => ({
             id: item.id,
             productId: item.productId,
+            variantId: item.variantId,
             quantity: item.quantity,
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
@@ -56,6 +57,7 @@ export class PrismaCartRepository
             id: item.id,
             cartId: cart.id,
             productId: item.productId,
+            variantId: item.variantId,
             quantity: item.quantity,
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
@@ -83,30 +85,78 @@ export class PrismaCartRepository
     await this.prisma.cart.deleteMany({ where: { userId } });
   }
 
-  async findByIds(ids: string[]): Promise<CartProductSnapshot[]> {
-    if (ids.length === 0) return [];
-    const rows = await this.prisma.product.findMany({
-      where: { id: { in: ids } },
+  async findByIds(variantIds: string[]): Promise<CartProductSnapshot[]> {
+    if (variantIds.length === 0) return [];
+    const rows = await this.prisma.productVariant.findMany({
+      where: { id: { in: variantIds } },
       include: {
-        images: {
-          orderBy: [
-            { isPrimary: 'desc' },
-            { sortOrder: 'asc' },
-            { createdAt: 'asc' },
-          ],
-          take: 1,
+        product: {
+          include: {
+            images: {
+              orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+              take: 1,
+            },
+          },
         },
+        image: true,
       },
     });
-    return rows.map((product) => ({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      price: product.price.toNumber(),
-      stock: product.stock,
-      isActive: product.isActive,
-      deletedAt: product.deletedAt,
-      thumbnailUrl: product.images[0]?.url ?? null,
-    }));
+    return rows.map((variant) => this.variantSnapshot(variant));
+  }
+
+  async findSingleActiveByProductId(
+    productId: string,
+  ): Promise<CartProductSnapshot | null> {
+    const variants = await this.prisma.productVariant.findMany({
+      where: { productId, deletedAt: null, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      take: 2,
+      include: {
+        product: {
+          include: {
+            images: {
+              orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+              take: 1,
+            },
+          },
+        },
+        image: true,
+      },
+    });
+    return variants.length === 1 ? this.variantSnapshot(variants[0]) : null;
+  }
+
+  private variantSnapshot(variant: {
+    id: string;
+    productId: string;
+    label: string | null;
+    sku: string;
+    price: { toNumber(): number };
+    stock: number;
+    isActive: boolean;
+    deletedAt: Date | null;
+    image: { url: string } | null;
+    product: {
+      name: string;
+      slug: string;
+      isActive: boolean;
+      deletedAt: Date | null;
+      images: Array<{ url: string }>;
+    };
+  }): CartProductSnapshot {
+    return {
+      id: variant.productId,
+      variantId: variant.id,
+      name: variant.product.name,
+      slug: variant.product.slug,
+      label: variant.label,
+      sku: variant.sku,
+      price: variant.price.toNumber(),
+      stock: variant.stock,
+      isActive: variant.isActive && variant.product.isActive,
+      deletedAt: variant.deletedAt ?? variant.product.deletedAt,
+      thumbnailUrl:
+        variant.image?.url ?? variant.product.images[0]?.url ?? null,
+    };
   }
 }

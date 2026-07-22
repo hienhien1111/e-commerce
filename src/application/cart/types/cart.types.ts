@@ -1,7 +1,10 @@
 export type CartProductSnapshot = {
   id: string;
+  variantId: string;
   name: string;
   slug: string;
+  label: string | null;
+  sku: string;
   price: number;
   stock: number;
   isActive: boolean;
@@ -20,6 +23,7 @@ export type CartView = {
   items: Array<{
     id: string;
     productId: string;
+    variantId: string;
     quantity: number;
     product: CartProductSnapshot;
     isAvailable: boolean;

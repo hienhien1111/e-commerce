@@ -18,7 +18,7 @@ export class RemoveFromCartHandler
     const cart = await this.cartRepository.findByUserId(command.userId);
     if (!cart) throw new NotFoundException('Cart item not found');
     try {
-      cart.removeItem(command.productId);
+      cart.removeItem(command.variantId);
     } catch (error) {
       if (error instanceof CartItemNotFoundException) {
         throw new NotFoundException('Cart item not found');
