@@ -2,6 +2,7 @@ import { OrderFactory } from '@/domain/factories/order.factory';
 import { OrderItemFactory } from '@/domain/factories/order-item.factory';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 
 const createOrder = () =>
   OrderFactory.create({
@@ -10,6 +11,7 @@ const createOrder = () =>
     subtotal: 100000,
     discountAmount: 10000,
     total: 90000,
+    paymentMethod: PaymentMethodEnum.COD,
     paymentStatus: PaymentStatusEnum.PENDING,
     shippingAddress: {
       fullName: 'Tester',
@@ -33,6 +35,10 @@ const createOrder = () =>
   });
 
 describe('Order', () => {
+  it('keeps the selected payment method on the order snapshot', () => {
+    expect(createOrder().paymentMethod).toBe(PaymentMethodEnum.COD);
+  });
+
   it('allows only the next fulfillment transition', () => {
     const order = createOrder();
     order.transitionTo(OrderStatusEnum.CONFIRMED);

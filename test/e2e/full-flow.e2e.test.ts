@@ -112,7 +112,7 @@ describe('Full commerce flow E2E', () => {
     const firstOrder = await request(app.getHttpServer())
       .post('/api/v1/orders')
       .set('Cookie', customerCookie)
-      .send({ shippingAddress })
+      .send({ shippingAddress, paymentMethod: 'MOMO' })
       .expect(201);
     await request(app.getHttpServer())
       .post('/api/v1/payments/initiate')

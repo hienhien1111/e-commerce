@@ -68,7 +68,7 @@ describe('Payment E2E', () => {
     const placed = await request(app.getHttpServer())
       .post('/api/v1/orders')
       .set('Cookie', userCookie)
-      .send({ shippingAddress })
+      .send({ shippingAddress, paymentMethod: 'MOMO' })
       .expect(201);
     return placed.body.id;
   }
@@ -137,6 +137,54 @@ describe('Payment E2E', () => {
       .set('Cookie', userCookie)
       .expect(200)
       .expect((response) => expect(response.body.id).toBe(first.body.id));
+  });
+
+  it('reserves one MoMo gateway call for concurrent initiation requests', async () => {
+    const orderId = await createOrder();
+    const before = gateway.initiations.length;
+    const [first, second] = await Promise.all([
+      request(app.getHttpServer())
+        .post('/api/v1/payments/initiate')
+        .set('Cookie', userCookie)
+        .send({ orderId }),
+      request(app.getHttpServer())
+        .post('/api/v1/payments/initiate')
+        .set('Cookie', userCookie)
+        .send({ orderId }),
+    ]);
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.id).toBe(second.body.id);
+    expect(gateway.initiations).toHaveLength(before + 1);
+  });
+
+  it('does not initiate payment records for COD orders', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ productId, quantity: 1 })
+      .expect(201);
+    const order = await request(app.getHttpServer())
+      .post('/api/v1/orders')
+      .set('Cookie', userCookie)
+      .send({ shippingAddress, paymentMethod: 'COD' })
+      .expect(201);
+    expect(order.body.paymentMethod).toBe('COD');
+    await request(app.getHttpServer())
+      .post('/api/v1/payments/initiate')
+      .set('Cookie', userCookie)
+      .send({ orderId: order.body.id })
+      .expect(422)
+      .expect((response) =>
+        expect(response.body).toMatchObject({
+          code: 'PAYMENT_METHOD_NOT_MOMO',
+          retryable: false,
+        }),
+      );
+    const prisma = app.get(PrismaService);
+    expect(
+      await prisma.payment.findUnique({ where: { orderId: order.body.id } }),
+    ).toBeNull();
   });
 
   it('settles valid IPNs once and confirms the order without exposing provider data', async () => {

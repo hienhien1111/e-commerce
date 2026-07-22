@@ -173,6 +173,87 @@ describe('Order E2E', () => {
       .expect(200);
   });
 
+  it('checks out Buy Now without mutating the existing cart or its coupon', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ productId, quantity: 1 })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/coupon')
+      .set('Cookie', userCookie)
+      .send({ code: 'ORDER10' })
+      .expect(200);
+    const beforeCart = await request(app.getHttpServer())
+      .get('/api/v1/cart')
+      .set('Cookie', userCookie)
+      .expect(200);
+    const placed = await request(app.getHttpServer())
+      .post('/api/v1/orders/buy-now')
+      .set('Cookie', userCookie)
+      .send({
+        productId,
+        quantity: 1,
+        couponCode: 'order10',
+        shippingAddress,
+        paymentMethod: 'COD',
+      })
+      .expect(201);
+    expect(placed.body).toMatchObject({
+      paymentMethod: 'COD',
+      subtotal: 100000,
+      discountAmount: 10000,
+      total: 90000,
+    });
+    const afterCart = await request(app.getHttpServer())
+      .get('/api/v1/cart')
+      .set('Cookie', userCookie)
+      .expect(200);
+    expect(afterCart.body.id).toBe(beforeCart.body.id);
+    expect(
+      afterCart.body.items.map(
+        (item: { id: string; productId: string; quantity: number }) => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity,
+        }),
+      ),
+    ).toEqual(
+      beforeCart.body.items.map(
+        (item: { id: string; productId: string; quantity: number }) => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: item.quantity,
+        }),
+      ),
+    );
+    expect(afterCart.body.coupon?.code).toBe('ORDER10');
+    const prisma = app.get(PrismaService);
+    expect(
+      await prisma.payment.findUnique({ where: { orderId: placed.body.id } }),
+    ).toBeNull();
+    expect(
+      (await prisma.product.findUniqueOrThrow({ where: { id: productId } }))
+        .stock,
+    ).toBe(4);
+    await request(app.getHttpServer())
+      .post(`/api/v1/orders/${placed.body.id}/cancel`)
+      .set('Cookie', userCookie)
+      .expect(200);
+    expect(
+      (await prisma.product.findUniqueOrThrow({ where: { id: productId } }))
+        .stock,
+    ).toBe(5);
+    expect(
+      (await prisma.coupon.findUniqueOrThrow({ where: { id: couponId } }))
+        .usedCount,
+    ).toBe(0);
+    await request(app.getHttpServer())
+      .delete('/api/v1/cart')
+      .set('Cookie', userCookie)
+      .expect(204);
+  });
+
   it('protects admin operations and supports status, admin cancellation, filters, and stats', async () => {
     await request(app.getHttpServer()).get('/api/v1/admin/orders').expect(401);
     await request(app.getHttpServer())

@@ -47,6 +47,24 @@ describe('Payment', () => {
     expect(payment.metadata.attempts).toHaveLength(2);
   });
 
+  it('exposes an in-progress reservation only for its bounded gateway window', () => {
+    const payment = createPayment();
+    const startedAt = new Date('2026-01-01T00:00:00.000Z');
+    payment.startAttempt({
+      providerOrderId: 'momo-order-1-1',
+      requestId: 'request-1',
+      expiresAt: new Date('2026-01-01T00:15:00.000Z'),
+      attempt: 1,
+      now: startedAt,
+    });
+    expect(payment.isInitiating(new Date('2026-01-01T00:00:30.000Z'))).toBe(
+      true,
+    );
+    expect(payment.isInitiating(new Date('2026-01-01T00:01:01.000Z'))).toBe(
+      false,
+    );
+  });
+
   it('makes PAID terminal', () => {
     const payment = createPayment();
     expect(payment.complete('provider-transaction')).toBe(true);

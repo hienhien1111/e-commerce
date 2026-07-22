@@ -17,6 +17,7 @@ describe('Cart E2E', () => {
   let adminCookie: string;
   let userCookie: string;
   let productId: string;
+  let defaultVariantId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -38,6 +39,7 @@ describe('Cart E2E', () => {
       .send({ name: 'Cart product', price: 100000, stock: 4 })
       .expect(201);
     productId = product.body.id;
+    defaultVariantId = product.body.variants[0].id;
   });
 
   afterAll(async () => {
@@ -67,17 +69,17 @@ describe('Cart E2E', () => {
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
       .set('Cookie', userCookie)
-      .send({ productId, quantity: 1 })
+      .send({ variantId: defaultVariantId, quantity: 1 })
       .expect(201)
       .expect((response) => expect(response.body.itemCount).toBe(1));
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
       .set('Cookie', userCookie)
-      .send({ productId, quantity: 2 })
+      .send({ variantId: defaultVariantId, quantity: 2 })
       .expect(201)
       .expect((response) => expect(response.body.items[0].quantity).toBe(3));
     await request(app.getHttpServer())
-      .patch(`/api/v1/cart/items/${productId}`)
+      .patch(`/api/v1/cart/items/${defaultVariantId}`)
       .set('Cookie', userCookie)
       .send({ quantity: 2 })
       .expect(200)
@@ -97,7 +99,7 @@ describe('Cart E2E', () => {
       .expect(200)
       .expect((response) => expect(response.body.coupon).toBeNull());
     await request(app.getHttpServer())
-      .delete(`/api/v1/cart/items/${productId}`)
+      .delete(`/api/v1/cart/items/${defaultVariantId}`)
       .set('Cookie', userCookie)
       .expect(204);
   });
@@ -106,7 +108,7 @@ describe('Cart E2E', () => {
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
       .set('Cookie', userCookie)
-      .send({ productId, quantity: 2 })
+      .send({ variantId: defaultVariantId, quantity: 2 })
       .expect(201);
     await request(app.getHttpServer())
       .patch(`/api/v1/products/${productId}`)
@@ -125,7 +127,7 @@ describe('Cart E2E', () => {
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
       .set('Cookie', userCookie)
-      .send({ productId, quantity: 1 })
+      .send({ variantId: defaultVariantId, quantity: 1 })
       .expect(404);
     await request(app.getHttpServer())
       .delete('/api/v1/cart')

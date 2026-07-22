@@ -20,7 +20,6 @@ describe('Catalog E2E', () => {
   let rootCategoryId: string;
   let childCategoryId: string;
   let productId: string;
-  const image = Buffer.from('catalog-image');
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -146,13 +145,29 @@ describe('Catalog E2E', () => {
   });
 
   it('uploads five product images, promotes the next primary image, and rejects a sixth', async () => {
-    for (let index = 0; index < 5; index += 1) {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const webp = Buffer.from([
+      0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+    ]);
+    const uploads = [
+      {
+        buffer: jpeg,
+        filename: '0.jpeg',
+        contentType: 'application/octet-stream',
+      },
+      { buffer: png, filename: '1.png', contentType: 'image/x-png' },
+      { buffer: webp, filename: '2.webp', contentType: 'image/webp' },
+      { buffer: jpeg, filename: '3.jpg', contentType: 'image/jpeg' },
+      { buffer: png, filename: '4.png', contentType: 'image/png' },
+    ];
+    for (const upload of uploads) {
       await request(app.getHttpServer())
         .post(`/api/v1/products/${productId}/images`)
         .set('Cookie', adminCookie)
-        .attach('file', image, {
-          filename: `${index}.webp`,
-          contentType: 'image/webp',
+        .attach('file', upload.buffer, {
+          filename: upload.filename,
+          contentType: upload.contentType,
         })
         .expect(201);
     }
@@ -171,9 +186,9 @@ describe('Catalog E2E', () => {
     await request(app.getHttpServer())
       .post(`/api/v1/products/${productId}/images`)
       .set('Cookie', adminCookie)
-      .attach('file', image, {
+      .attach('file', webp, {
         filename: 'six.webp',
-        contentType: 'image/webp',
+        contentType: 'application/octet-stream',
       })
       .expect(409);
 
@@ -193,11 +208,107 @@ describe('Catalog E2E', () => {
     expect(fileStorage.deletedPublicIds).toContain(primaryStorageId);
   });
 
+  it('manages manual variants and exposes only sellable variant data publicly', async () => {
+    const before = await request(app.getHttpServer())
+      .get(`/api/v1/admin/products/${productId}`)
+      .set('Cookie', adminCookie)
+      .expect(200);
+    const defaultVariant = before.body.variants.find(
+      (variant: { label: string | null }) => variant.label === null,
+    );
+    expect(defaultVariant).toBeDefined();
+    expect(before.body.images).not.toHaveLength(0);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/products/${productId}/variants/${defaultVariant.id}`)
+      .set('Cookie', adminCookie)
+      .send({ label: 'Đen - M', sku: 'TWS-BLACK-M' })
+      .expect(200)
+      .expect((response) => expect(response.body.sku).toBe('TWS-BLACK-M'));
+    const created = await request(app.getHttpServer())
+      .post(`/api/v1/products/${productId}/variants`)
+      .set('Cookie', adminCookie)
+      .send({
+        label: 'Trắng - L',
+        sku: 'TWS-WHITE-L',
+        price: 229000,
+        comparePrice: 269000,
+        stock: 2,
+        imageId: before.body.images[0].id,
+      })
+      .expect(201);
+    const whiteLargeVariantId = created.body.id;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/products/${productId}/variants`)
+      .set('Cookie', adminCookie)
+      .send({
+        label: 'trắng - l',
+        sku: 'TWS-WHITE-L-DUPLICATE',
+        price: 229000,
+        stock: 2,
+      })
+      .expect(409);
+
+    const publicProduct = await request(app.getHttpServer())
+      .get(`/api/v1/products/${productId}`)
+      .expect(200);
+    expect(publicProduct.body).toMatchObject({
+      hasVariants: true,
+      priceRange: { min: 199000, max: 229000 },
+    });
+    expect(publicProduct.body.variants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: whiteLargeVariantId,
+          imageId: before.body.images[0].id,
+        }),
+      ]),
+    );
+
+    const userCookie = (
+      await registerAndLogin(app, credentials('variant-user'))
+    ).access;
+    const cart = await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ variantId: whiteLargeVariantId, quantity: 1 })
+      .expect(201);
+    expect(cart.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          productId,
+          variantId: whiteLargeVariantId,
+          product: expect.objectContaining({ label: 'Trắng - L' }),
+        }),
+      ]),
+    );
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/products/${productId}/variants/${whiteLargeVariantId}`)
+      .set('Cookie', adminCookie)
+      .send({ isActive: false })
+      .expect(200);
+    await request(app.getHttpServer())
+      .get('/api/v1/cart')
+      .set('Cookie', userCookie)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items[0]).toMatchObject({
+          isAvailable: false,
+          availabilityReason: 'INACTIVE',
+        });
+      });
+  });
+
   it('rejects unsupported and oversized uploads, then soft deletes products', async () => {
     await request(app.getHttpServer())
       .post(`/api/v1/products/${productId}/images`)
       .set('Cookie', adminCookie)
-      .attach('file', image, { filename: 'bad.gif', contentType: 'image/gif' })
+      .attach('file', Buffer.from('GIF89a'), {
+        filename: 'bad.gif',
+        contentType: 'image/gif',
+      })
       .expect(400);
     await request(app.getHttpServer())
       .post(`/api/v1/products/${productId}/images`)

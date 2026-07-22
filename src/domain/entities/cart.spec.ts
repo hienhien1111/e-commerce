@@ -4,7 +4,11 @@ import { CartItemFactory } from '@/domain/factories/cart-item.factory';
 
 describe('Cart', () => {
   const item = (productId: string, quantity: number) =>
-    CartItemFactory.create({ productId, quantity });
+    CartItemFactory.create({
+      productId,
+      variantId: `${productId}-default`,
+      quantity,
+    });
 
   it('adds new items and increments an existing product', () => {
     const cart = CartFactory.create({
@@ -27,7 +31,7 @@ describe('Cart', () => {
       items: [item('product-1', 2)],
     });
 
-    cart.updateItem('product-1', 0);
+    cart.updateItem('product-1-default', 0);
 
     expect(cart.items).toEqual([]);
     expect(cart.couponId).toBeNull();

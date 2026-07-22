@@ -22,12 +22,13 @@ describe('AuthController Google OAuth callback', () => {
     redirect: jest.fn(),
   });
 
-  it('sets HttpOnly cookies and redirects to the profile page', async () => {
+  it('sets HttpOnly cookies and redirects a customer to the storefront', async () => {
     const commandBus = {
       execute: jest.fn().mockResolvedValue({
         token: 'access+token',
         refreshToken: 'refresh/token',
         tokenExpires: 1_700_000_000_000,
+        user: { role: { name: 'customer' } },
       }),
     } as unknown as CommandBus;
     const controller = new AuthController(commandBus, queryBus, configService);
@@ -46,8 +47,35 @@ describe('AuthController Google OAuth callback', () => {
     );
 
     expect(response.cookie).toHaveBeenCalledTimes(2);
+    expect(response.redirect).toHaveBeenCalledWith('http://localhost:3000/');
+  });
+
+  it('redirects an administrator to the admin workspace', async () => {
+    const commandBus = {
+      execute: jest.fn().mockResolvedValue({
+        token: 'access+token',
+        refreshToken: 'refresh/token',
+        tokenExpires: 1_700_000_000_000,
+        user: { role: { name: 'admin' } },
+      }),
+    } as unknown as CommandBus;
+    const controller = new AuthController(commandBus, queryBus, configService);
+    const response = createResponse();
+
+    await controller.googleAuthRedirect(
+      {
+        user: {
+          socialId: 'google-admin-id',
+          email: 'admin@example.com',
+          firstName: 'Admin',
+          lastName: 'Shop',
+        },
+      } as never,
+      response as never,
+    );
+
     expect(response.redirect).toHaveBeenCalledWith(
-      'http://localhost:3000/profile',
+      'http://localhost:3000/admin',
     );
   });
 
