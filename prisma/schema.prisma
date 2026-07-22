@@ -276,12 +276,15 @@ model ProductImage {
 model Cart {
   id        String     @id @db.Uuid
   userId    String     @unique @map("user_id") @db.Uuid
+  couponId  String?    @map("coupon_id") @db.Uuid
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
-  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items CartItem[]
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items         CartItem[]
+  appliedCoupon Coupon? @relation("CartAppliedCoupon", fields: [couponId], references: [id], onDelete: SetNull)
 
+  @@index([couponId])
   @@map("carts")
 }
 
@@ -388,6 +391,7 @@ model Coupon {
   code           String       @unique
   discountType   DiscountType @map("discount_type")
   discountValue  Decimal      @map("discount_value") @db.Decimal(12, 0)
+  maxDiscount    Decimal?     @map("max_discount") @db.Decimal(12, 0)
   minOrderAmount Decimal?     @map("min_order_amount") @db.Decimal(12, 0)
   maxUsage       Int?         @map("max_usage")
   usedCount      Int          @default(0) @map("used_count")
@@ -399,6 +403,7 @@ model Coupon {
 
   usages CouponUsage[]
   orders Order[]
+  appliedCarts Cart[] @relation("CartAppliedCoupon")
 
   @@index([code])
   @@index([isActive])

@@ -19,6 +19,8 @@ import { HealthModule } from './health/health.module';
 import { IdentityModule } from './application/identity/identity.module';
 import { AuthorizationModule } from './application/authorization/authorization.module';
 import { CatalogModule } from './application/catalog/catalog.module';
+import { CartModule } from './application/cart/cart.module';
+import { DiscountModule } from './application/discount/discount.module';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { CatalogModule } from './application/catalog/catalog.module';
     IdentityModule,
     AuthorizationModule,
     CatalogModule,
+    DiscountModule,
+    CartModule,
   ],
   providers: [
     {

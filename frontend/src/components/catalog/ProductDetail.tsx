@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { formatVnd, Product } from '@/lib/catalog';
+import { useCart } from '@/providers/CartProvider';
 import styles from './ProductDetail.module.css';
 
 export function ProductDetail({ productId }: { productId: string }) {
@@ -11,6 +12,9 @@ export function ProductDetail({ productId }: { productId: string }) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [cartError, setCartError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const { addItem } = useCart();
 
   useEffect(() => {
     let active = true;
@@ -49,6 +53,18 @@ export function ProductDetail({ productId }: { productId: string }) {
 
   const image = product.images[selectedImage];
   const outOfStock = product.stock === 0;
+
+  const addToCart = async () => {
+    setAdding(true);
+    setCartError(null);
+    try {
+      await addItem(product.id, quantity);
+    } catch {
+      setCartError('Không thể thêm sản phẩm vào giỏ. Vui lòng thử lại.');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <main className={styles.main}>
@@ -115,22 +131,20 @@ export function ProductDetail({ productId }: { productId: string }) {
               +
             </button>
           </div>
-          <p className={styles.comingSoon}>
-            Giỏ hàng sẽ khả dụng ở bước tiếp theo.
-          </p>
+          {cartError && <p className={styles.cartError}>{cartError}</p>}
           <div className={styles.actions}>
             <button
               className="btn btn-outline"
-              disabled
-              title="Sẽ khả dụng ở bước Giỏ hàng"
+              disabled={outOfStock || adding}
+              onClick={() => void addToCart()}
               type="button"
             >
-              Thêm vào giỏ
+              {adding ? 'Đang thêm…' : 'Thêm vào giỏ'}
             </button>
             <button
               className="btn btn-primary"
               disabled
-              title="Sẽ khả dụng ở bước Giỏ hàng"
+              title="Thanh toán sẽ khả dụng ở PR08"
               type="button"
             >
               Mua ngay

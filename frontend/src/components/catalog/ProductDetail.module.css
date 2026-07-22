@@ -107,8 +107,8 @@
   border-left: none;
   border-right: none;
 }
-.comingSoon {
-  color: var(--color-text-secondary);
+.cartError {
+  color: var(--color-error);
   font-size: 12px;
   margin-top: var(--space-4);
 }

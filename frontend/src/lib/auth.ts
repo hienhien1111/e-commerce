@@ -16,10 +16,17 @@ export interface AuthUser {
 
 const USER_KEY = 'auth_user';
 
+function notifySessionChange(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('auth:changed'));
+  }
+}
+
 export const auth = {
   setUser(user: AuthUser): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+    notifySessionChange();
   },
 
   getUser(): AuthUser | null {
@@ -50,6 +57,7 @@ export const auth = {
   logout(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(USER_KEY);
+    notifySessionChange();
   },
 
   getDisplayName(): string {
