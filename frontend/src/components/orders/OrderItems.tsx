@@ -17,6 +17,9 @@ export function OrderItems({ order }: { order: Order }) {
           </div>
           <div className={styles.itemInfo}>
             <strong>{item.snapshot.name}</strong>
+            {item.snapshot.variantLabel && (
+              <span className={styles.muted}>{item.snapshot.variantLabel}</span>
+            )}
             {item.snapshot.sku && (
               <span className={styles.muted}>SKU: {item.snapshot.sku}</span>
             )}

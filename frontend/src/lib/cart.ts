@@ -6,8 +6,11 @@ export type CartAvailabilityReason =
 
 export type CartProduct = {
   id: string;
+  variantId: string;
   name: string;
   slug: string;
+  label: string | null;
+  sku: string;
   price: number;
   stock: number;
   thumbnailUrl: string | null;
@@ -18,6 +21,7 @@ export type CartProduct = {
 export type CartItem = {
   id: string;
   productId: string;
+  variantId: string;
   quantity: number;
   product: CartProduct;
   isAvailable: boolean;

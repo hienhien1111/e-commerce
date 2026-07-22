@@ -37,7 +37,9 @@ export function CatalogBrowser() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [productError, setProductError] = useState<string | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
   const [searchDraft, setSearchDraft] = useState(search);
   const [minPriceDraft, setMinPriceDraft] = useState(minPrice);
   const [maxPriceDraft, setMaxPriceDraft] = useState(maxPrice);
@@ -54,20 +56,29 @@ export function CatalogBrowser() {
   }, [search, minPrice, maxPrice]);
 
   useEffect(() => {
+    const controller = new AbortController();
     let active = true;
+    setCategoryError(null);
     void api
-      .get<Category[]>('v1/categories', { skipAuth: true })
+      .get<Category[]>('v1/categories', {
+        skipAuth: true,
+        signal: controller.signal,
+      })
       .then((data) => active && setCategories(data))
-      .catch(() => active && setError('Không thể tải danh mục.'));
+      .catch(() => active && setCategoryError('Không thể tải danh mục.'));
     return () => {
       active = false;
+      controller.abort();
     };
-  }, []);
+  }, [reloadVersion]);
 
   useEffect(() => {
+    const controller = new AbortController();
     let active = true;
     setLoading(true);
-    setError(null);
+    setProductError(null);
+    setProducts([]);
+    setNextCursor(null);
     const params = new URLSearchParams();
     if (filters.categoryId) params.set('categoryId', filters.categoryId);
     if (filters.search) params.set('search', filters.search);
@@ -75,18 +86,22 @@ export function CatalogBrowser() {
     if (filters.maxPrice) params.set('maxPrice', filters.maxPrice);
     params.set('limit', '20');
     void api
-      .get<ProductPage>(`v1/products?${params.toString()}`, { skipAuth: true })
+      .get<ProductPage>(`v1/products?${params.toString()}`, {
+        skipAuth: true,
+        signal: controller.signal,
+      })
       .then((page) => {
         if (!active) return;
         setProducts(page.data);
         setNextCursor(page.nextCursor);
       })
-      .catch(() => active && setError('Không thể tải sản phẩm.'))
+      .catch(() => active && setProductError('Không thể tải sản phẩm.'))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [filters]);
+  }, [filters, reloadVersion]);
 
   const roots = categories.filter((category) => category.parentId === null);
   const childrenByParent = new Map<string, Category[]>();
@@ -126,7 +141,7 @@ export function CatalogBrowser() {
       (max && (!Number.isInteger(Number(max)) || Number(max) < 0)) ||
       (min && max && Number(min) > Number(max))
     ) {
-      setError('Khoảng giá không hợp lệ.');
+      setProductError('Khoảng giá không hợp lệ.');
       return;
     }
     setFilters({ minPrice: min, maxPrice: max });
@@ -152,7 +167,7 @@ export function CatalogBrowser() {
       setProducts((current) => [...current, ...page.data]);
       setNextCursor(page.nextCursor);
     } catch {
-      setError('Không thể tải thêm sản phẩm.');
+      setProductError('Không thể tải thêm sản phẩm.');
     } finally {
       setLoadingMore(false);
     }
@@ -167,6 +182,18 @@ export function CatalogBrowser() {
           id="catalog-categories"
         >
           <h2>Danh mục</h2>
+          {categoryError && (
+            <p className={styles.error} role="alert">
+              {categoryError}{' '}
+              <button
+                className="btn btn-ghost"
+                onClick={() => setReloadVersion((value) => value + 1)}
+                type="button"
+              >
+                Tải lại
+              </button>
+            </p>
+          )}
           <button
             className={!categoryId ? styles.activeCategory : ''}
             type="button"
@@ -233,9 +260,16 @@ export function CatalogBrowser() {
             </button>
           </form>
 
-          {error && (
+          {productError && (
             <p className={styles.error} role="alert">
-              {error}
+              {productError}{' '}
+              <button
+                className="btn btn-ghost"
+                onClick={() => setReloadVersion((value) => value + 1)}
+                type="button"
+              >
+                Tải lại
+              </button>
             </p>
           )}
           {loading ? (
@@ -271,7 +305,9 @@ export function CatalogBrowser() {
                       <h3>{product.name}</h3>
                       <div className={styles.prices}>
                         <span className="price">
-                          {formatVnd(product.price)}
+                          {product.priceRange.min !== product.priceRange.max
+                            ? `Từ ${formatVnd(product.priceRange.min)}`
+                            : formatVnd(product.price)}
                         </span>
                         {product.comparePrice !== null &&
                           product.comparePrice > product.price && (

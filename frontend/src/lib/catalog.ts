@@ -16,6 +16,18 @@ export type ProductImage = {
   createdAt: string;
 };
 
+export type ProductVariant = {
+  id: string;
+  label: string | null;
+  sku: string;
+  price: number;
+  comparePrice: number | null;
+  stock: number;
+  isActive: boolean;
+  imageId: string | null;
+  imageUrl: string | null;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -25,9 +37,12 @@ export type Product = {
   comparePrice: number | null;
   stock: number;
   sku: string | null;
+  hasVariants: boolean;
+  priceRange: { min: number; max: number };
   categoryId: string | null;
   isActive: boolean;
   images: ProductImage[];
+  variants: ProductVariant[];
 };
 
 export type ProductPage = {

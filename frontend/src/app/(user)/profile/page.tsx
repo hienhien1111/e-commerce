@@ -7,7 +7,11 @@ import { auth, type AuthUser } from '@/lib/auth';
 import styles from './page.module.css';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
-const ACCEPTED_AVATAR_TYPES = new Set(['image/jpeg', 'image/png']);
+const ACCEPTED_AVATAR_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/x-png',
+]);
 const VIETNAMESE_MOBILE_PATTERN = /^0(?:3|5|7|8|9)\d{8}$/;
 
 type ProfileUser = AuthUser & {
@@ -33,7 +37,7 @@ function getRequestError(
   field = 'phone',
 ): string {
   if (error instanceof ApiError) {
-    return getValidationError(error, field) ?? fallback;
+    return getValidationError(error, field) ?? (error.message || fallback);
   }
 
   return fallback;
@@ -155,7 +159,13 @@ function ProfileContent() {
     if (!file || !profile) return;
 
     setAvatarError('');
-    if (!ACCEPTED_AVATAR_TYPES.has(file.type)) {
+    const extension = file.name.toLowerCase().split('.').pop();
+    if (
+      !ACCEPTED_AVATAR_TYPES.has(file.type) &&
+      extension !== 'jpg' &&
+      extension !== 'jpeg' &&
+      extension !== 'png'
+    ) {
       setAvatarError('Chỉ hỗ trợ ảnh JPEG hoặc PNG.');
       event.target.value = '';
       return;
@@ -229,7 +239,7 @@ function ProfileContent() {
                 ref={fileInput}
                 className={styles.fileInput}
                 type="file"
-                accept="image/jpeg,image/png"
+                accept="image/jpeg,image/png,.jpg,.jpeg,.png"
                 onChange={handleAvatarChange}
                 disabled={uploading}
               />

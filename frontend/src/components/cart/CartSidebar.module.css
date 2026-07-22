@@ -1,4 +1,4 @@
-.layer { inset: 0; position: fixed; z-index: 50; }
+.layer { inset: 0; position: fixed; z-index: 90; }
 .backdrop { background: rgba(0, 0, 0, .35); height: 100%; inset: 0; position: absolute; width: 100%; }
 .sidebar { background: #fff; box-shadow: var(--shadow-modal); display: flex; flex-direction: column; height: 100%; max-width: 460px; padding: var(--space-5); position: absolute; right: 0; top: 0; width: min(100%, 460px); }
 .header { align-items: center; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; padding-bottom: var(--space-4); }

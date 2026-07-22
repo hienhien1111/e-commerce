@@ -4,7 +4,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ApiError, api } from '@/lib/api';
 import type { AdminProductPage } from '@/lib/admin';
-import type { Category, Product } from '@/lib/catalog';
+import type { Category, Product, ProductVariant } from '@/lib/catalog';
 import { formatVnd } from '@/lib/catalog';
 import { useToast } from '@/providers/ToastProvider';
 import styles from './AdminScreens.module.css';
@@ -19,6 +19,40 @@ type ProductForm = {
   categoryId: string;
   isActive: boolean;
 };
+
+type VariantForm = {
+  id: string | null;
+  label: string;
+  sku: string;
+  price: string;
+  comparePrice: string;
+  stock: string;
+  isActive: boolean;
+  imageId: string;
+};
+
+const emptyVariantForm = (): VariantForm => ({
+  id: null,
+  label: '',
+  sku: '',
+  price: '',
+  comparePrice: '',
+  stock: '0',
+  isActive: true,
+  imageId: '',
+});
+
+const toVariantForm = (variant: ProductVariant): VariantForm => ({
+  id: variant.id,
+  label: variant.label ?? '',
+  sku: variant.sku,
+  price: String(variant.price),
+  comparePrice:
+    variant.comparePrice === null ? '' : String(variant.comparePrice),
+  stock: String(variant.stock),
+  isActive: variant.isActive,
+  imageId: variant.imageId ?? '',
+});
 
 const emptyForm = (): ProductForm => ({
   name: '',
@@ -59,6 +93,7 @@ export function AdminProductsScreen() {
   );
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [files, setFiles] = useState<File[]>([]);
+  const [variantForm, setVariantForm] = useState<VariantForm>(emptyVariantForm);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,26 +140,38 @@ export function AdminProductsScreen() {
     setForm(emptyForm());
     setFiles([]);
     setModalProduct(null);
+    setVariantForm(emptyVariantForm());
   };
   const openEdit = (product: Product) => {
     setForm(toForm(product));
     setFiles([]);
     setModalProduct(product);
+    setVariantForm(emptyVariantForm());
   };
   const setField = <K extends keyof ProductForm>(
     key: K,
     value: ProductForm[K],
   ) => setForm((current) => ({ ...current, [key]: value }));
-  const payload = () => ({
-    name: form.name.trim(),
-    description: form.description.trim() || null,
-    price: Number(form.price),
-    comparePrice: form.comparePrice ? Number(form.comparePrice) : null,
-    stock: Number(form.stock),
-    sku: form.sku.trim() || null,
-    categoryId: form.categoryId || null,
-    isActive: form.isActive,
-  });
+  const payload = () => {
+    const base = {
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      categoryId: form.categoryId || null,
+      isActive: form.isActive,
+    };
+    const isVariantProduct = modalProduct?.variants.some(
+      (variant) => variant.label !== null,
+    );
+    return isVariantProduct
+      ? base
+      : {
+          ...base,
+          price: Number(form.price),
+          comparePrice: form.comparePrice ? Number(form.comparePrice) : null,
+          stock: Number(form.stock),
+          sku: form.sku.trim() || null,
+        };
+  };
 
   const uploadFiles = async (productId: string) => {
     for (const file of files) {
@@ -187,6 +234,16 @@ export function AdminProductsScreen() {
 
   const deleteImage = async (imageId: string) => {
     if (!modalProduct) return;
+    const attachedVariants = modalProduct.variants.filter(
+      (variant) => variant.imageId === imageId,
+    );
+    if (
+      attachedVariants.length > 0 &&
+      !window.confirm(
+        `Ảnh này đang được dùng bởi ${attachedVariants.length} mẫu mã. Xóa ảnh sẽ gỡ liên kết ảnh khỏi các mẫu đó. Tiếp tục?`,
+      )
+    )
+      return;
     try {
       await api.delete(`v1/products/${modalProduct.id}/images/${imageId}`);
       setModalProduct(
@@ -201,6 +258,83 @@ export function AdminProductsScreen() {
       toast.error('Không thể xóa ảnh.');
     }
   };
+
+  const saveVariant = async () => {
+    if (!modalProduct) return;
+    setBusy(true);
+    setError(null);
+    const payload = {
+      label: variantForm.label.trim() || null,
+      sku: variantForm.sku.trim(),
+      price: Number(variantForm.price),
+      comparePrice: variantForm.comparePrice
+        ? Number(variantForm.comparePrice)
+        : null,
+      stock: Number(variantForm.stock),
+      isActive: variantForm.isActive,
+      imageId: variantForm.imageId || null,
+    };
+    try {
+      const saved = variantForm.id
+        ? await api.patch<ProductVariant>(
+            `v1/products/${modalProduct.id}/variants/${variantForm.id}`,
+            payload,
+          )
+        : await api.post<ProductVariant>(
+            `v1/products/${modalProduct.id}/variants`,
+            payload,
+          );
+      setModalProduct(
+        (current) =>
+          current && {
+            ...current,
+            hasVariants: true,
+            variants: variantForm.id
+              ? current.variants.map((variant) =>
+                  variant.id === saved.id ? saved : variant,
+                )
+              : [...current.variants, saved],
+          },
+      );
+      setVariantForm(emptyVariantForm());
+      toast.success('Đã lưu mẫu mã.');
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError ? cause.message : 'Không thể lưu mẫu mã.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeVariant = async (variant: ProductVariant) => {
+    if (
+      !modalProduct ||
+      !window.confirm(`Xóa mẫu mã “${variant.label ?? 'Mặc định'}”?`)
+    )
+      return;
+    try {
+      await api.delete(`v1/products/${modalProduct.id}/variants/${variant.id}`);
+      setModalProduct(
+        (current) =>
+          current && {
+            ...current,
+            variants: current.variants.filter((item) => item.id !== variant.id),
+          },
+      );
+      toast.success('Đã xóa mẫu mã.');
+      await load();
+    } catch (cause) {
+      toast.error(
+        cause instanceof ApiError ? cause.message : 'Không thể xóa mẫu mã.',
+      );
+    }
+  };
+
+  const isVariantProduct = Boolean(
+    modalProduct?.variants.some((variant) => variant.label !== null),
+  );
 
   return (
     <main className={styles.page}>
@@ -374,48 +508,56 @@ export function AdminProductsScreen() {
                   value={form.description}
                 />
               </label>
-              <label className="form-group">
-                <span className="form-label">Giá VND *</span>
-                <input
-                  className="form-input"
-                  min="0"
-                  onChange={(event) => setField('price', event.target.value)}
-                  required
-                  type="number"
-                  value={form.price}
-                />
-              </label>
-              <label className="form-group">
-                <span className="form-label">Giá so sánh</span>
-                <input
-                  className="form-input"
-                  min="0"
-                  onChange={(event) =>
-                    setField('comparePrice', event.target.value)
-                  }
-                  type="number"
-                  value={form.comparePrice}
-                />
-              </label>
-              <label className="form-group">
-                <span className="form-label">Tồn kho</span>
-                <input
-                  className="form-input"
-                  min="0"
-                  onChange={(event) => setField('stock', event.target.value)}
-                  required
-                  type="number"
-                  value={form.stock}
-                />
-              </label>
-              <label className="form-group">
-                <span className="form-label">SKU</span>
-                <input
-                  className="form-input"
-                  onChange={(event) => setField('sku', event.target.value)}
-                  value={form.sku}
-                />
-              </label>
+              {!isVariantProduct && (
+                <>
+                  <label className="form-group">
+                    <span className="form-label">Giá VND *</span>
+                    <input
+                      className="form-input"
+                      min="0"
+                      onChange={(event) =>
+                        setField('price', event.target.value)
+                      }
+                      required
+                      type="number"
+                      value={form.price}
+                    />
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Giá so sánh</span>
+                    <input
+                      className="form-input"
+                      min="0"
+                      onChange={(event) =>
+                        setField('comparePrice', event.target.value)
+                      }
+                      type="number"
+                      value={form.comparePrice}
+                    />
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Tồn kho</span>
+                    <input
+                      className="form-input"
+                      min="0"
+                      onChange={(event) =>
+                        setField('stock', event.target.value)
+                      }
+                      required
+                      type="number"
+                      value={form.stock}
+                    />
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">SKU</span>
+                    <input
+                      className="form-input"
+                      onChange={(event) => setField('sku', event.target.value)}
+                      value={form.sku}
+                    />
+                  </label>
+                </>
+              )}
               <label className="form-group">
                 <span className="form-label">Danh mục</span>
                 <select
@@ -448,7 +590,7 @@ export function AdminProductsScreen() {
                   Ảnh sản phẩm (JPEG/PNG/WebP, tối đa 5)
                 </span>
                 <input
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                   multiple
                   onChange={(event) =>
                     setFiles(
@@ -482,6 +624,154 @@ export function AdminProductsScreen() {
                   </div>
                 </div>
               ) : null}
+              {modalProduct && (
+                <div className={`wide ${styles.variantPanel}`}>
+                  <div className={styles.variantHeading}>
+                    <span className="form-label">Mẫu mã / biến thể</span>
+                    {modalProduct.variants.length > 0 && (
+                      <small>
+                        Đổi “Mặc định” thành mẫu đầu tiên trước khi thêm mẫu
+                        mới.
+                      </small>
+                    )}
+                  </div>
+                  <div className={styles.variantList}>
+                    {modalProduct.variants.map((variant) => (
+                      <div className={styles.variantRow} key={variant.id}>
+                        <span>{variant.label ?? 'Mặc định'}</span>
+                        <span>{variant.sku}</span>
+                        <span>{formatVnd(variant.price)}</span>
+                        <span>Tồn: {variant.stock}</span>
+                        <button
+                          onClick={() => setVariantForm(toVariantForm(variant))}
+                          type="button"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => void removeVariant(variant)}
+                          type="button"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.variantForm}>
+                    <input
+                      className="form-input"
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          label: event.target.value,
+                        }))
+                      }
+                      placeholder="Nhãn, ví dụ: Đen - L"
+                      value={variantForm.label}
+                    />
+                    <input
+                      className="form-input"
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          sku: event.target.value,
+                        }))
+                      }
+                      placeholder="SKU *"
+                      required
+                      value={variantForm.sku}
+                    />
+                    <input
+                      className="form-input"
+                      min="0"
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          price: event.target.value,
+                        }))
+                      }
+                      placeholder="Giá *"
+                      required
+                      type="number"
+                      value={variantForm.price}
+                    />
+                    <input
+                      className="form-input"
+                      min="0"
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          comparePrice: event.target.value,
+                        }))
+                      }
+                      placeholder="Giá so sánh"
+                      type="number"
+                      value={variantForm.comparePrice}
+                    />
+                    <input
+                      className="form-input"
+                      min="0"
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          stock: event.target.value,
+                        }))
+                      }
+                      placeholder="Tồn kho *"
+                      required
+                      type="number"
+                      value={variantForm.stock}
+                    />
+                    <select
+                      className="form-input"
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          imageId: event.target.value,
+                        }))
+                      }
+                      value={variantForm.imageId}
+                    >
+                      <option value="">Dùng ảnh chung</option>
+                      {modalProduct.images.map((image) => (
+                        <option key={image.id} value={image.id}>
+                          Ảnh {image.sortOrder + 1}
+                        </option>
+                      ))}
+                    </select>
+                    <label className={styles.check}>
+                      <input
+                        checked={variantForm.isActive}
+                        onChange={(event) =>
+                          setVariantForm((current) => ({
+                            ...current,
+                            isActive: event.target.checked,
+                          }))
+                        }
+                        type="checkbox"
+                      />
+                      Bán
+                    </label>
+                    <button
+                      className="btn btn-outline"
+                      disabled={busy}
+                      onClick={() => void saveVariant()}
+                      type="button"
+                    >
+                      {variantForm.id ? 'Cập nhật mẫu' : 'Thêm mẫu'}
+                    </button>
+                    {variantForm.id && (
+                      <button
+                        className="btn btn-ghost"
+                        onClick={() => setVariantForm(emptyVariantForm())}
+                        type="button"
+                      >
+                        Hủy sửa
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className={styles.modalFooter}>
               <button

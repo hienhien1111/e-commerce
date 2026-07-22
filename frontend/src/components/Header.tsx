@@ -1,136 +1,183 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
-import { auth, type AuthUser } from '@/lib/auth';
 import { CartIcon } from '@/components/cart/CartIcon';
+import { useSession } from '@/providers/SessionProvider';
+import { useToast } from '@/providers/ToastProvider';
 import styles from './Header.module.css';
 
 export function Header() {
-  // The server cannot read localStorage. Keep the first browser render equal
-  // to the server render, then hydrate the cached session in an effect.
-  const [user, setUser] = useState<AuthUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const { user, logout } = useSession();
+  const toast = useToast();
   const router = useRouter();
-
-  useEffect(() => {
-    let active = true;
-
-    setUser(auth.getUser());
-
-    const loadCurrentUser = async () => {
-      try {
-        return await api.get<AuthUser>('v1/me', { skipAuth: true });
-      } catch {
-        await api.post<void>('v1/refresh', undefined, { skipAuth: true });
-        return api.get<AuthUser>('v1/me', { skipAuth: true });
-      }
-    };
-
-    void loadCurrentUser()
-      .then((currentUser) => {
-        if (!active) return;
-        auth.setUser(currentUser);
-        setUser(currentUser);
-      })
-      .catch(() => {
-        if (!active) return;
-        auth.logout();
-        setUser(null);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const logout = async () => {
-    try {
-      await api.post<void>('v1/logout');
-    } finally {
-      auth.logout();
-      setUser(null);
-      router.replace('/');
-    }
-  };
+  const admin = user?.role?.name === 'admin';
 
   const displayName =
     [user?.lastName, user?.firstName].filter(Boolean).join(' ') ||
     user?.email ||
     'Tài khoản';
 
-  return (
-    <header className={styles.header}>
-      <div className={`container ${styles.content}`}>
-        <Link href="/" className={styles.brand} aria-label="ShopApp home">
-          <span aria-hidden="true">🛍️</span>
-          <span>ShopApp</span>
-        </Link>
+  const requestLogout = () => {
+    setAccountOpen(false);
+    setConfirmLogout(true);
+  };
 
-        <button
-          aria-expanded={menuOpen}
-          aria-label="Mở menu"
-          className={styles.menuButton}
-          onClick={() => setMenuOpen((current) => !current)}
-          type="button"
-        >
-          ☰
-        </button>
-        <nav
-          className={`${styles.navigation} ${menuOpen ? styles.open : ''}`}
-          aria-label="Điều hướng chính"
-        >
-          <Link href="/">Trang chủ</Link>
-          {user?.role?.name === 'admin' && <Link href="/admin">Quản trị</Link>}
-          <CartIcon />
-          {user ? (
-            <>
-              <Link href="/profile" className={styles.accountLink}>
-                {user.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className={styles.avatar} src={user.avatarUrl} alt="" />
-                ) : (
-                  <span className={styles.initial}>
-                    {displayName.slice(0, 1)}
-                  </span>
-                )}
-                <span>{displayName}</span>
-              </Link>
-              <button
-                className={styles.logoutButton}
-                type="button"
-                onClick={logout}
-              >
-                Đăng xuất
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login">Đăng nhập</Link>
-              <Link href="/register" className={styles.registerLink}>
-                Đăng ký
-              </Link>
-            </>
+  const confirmLogoutAction = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      setConfirmLogout(false);
+      router.replace('/');
+    } catch {
+      toast.error('Không thể đăng xuất lúc này. Phiên của bạn vẫn được giữ nguyên.');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const accountMenu = user && (
+    <div className={styles.accountMenu}>
+      <button
+        aria-expanded={accountOpen}
+        className={styles.accountButton}
+        onClick={() => setAccountOpen((current) => !current)}
+        type="button"
+      >
+        {user.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={styles.avatar} src={user.avatarUrl} alt="" />
+        ) : (
+          <span className={styles.initial}>{displayName.slice(0, 1)}</span>
+        )}
+        <span>{displayName}</span>
+      </button>
+      {accountOpen && (
+        <div className={styles.accountPopover}>
+          <Link href="/profile" onClick={() => setAccountOpen(false)}>
+            Hồ sơ
+          </Link>
+          {!admin && (
+            <Link href="/orders" onClick={() => setAccountOpen(false)}>
+              Đơn mua
+            </Link>
           )}
-        </nav>
-      </div>
-      <nav className={styles.mobileBottom} aria-label="Điều hướng di động">
-        <Link href="/">
-          <span aria-hidden="true">⌂</span>
-          Trang chủ
-        </Link>
-        <Link href="/#catalog-categories">
-          <span aria-hidden="true">☷</span>
-          Danh mục
-        </Link>
-        <CartIcon />
-        <Link href={user ? '/profile' : '/login'}>
-          <span aria-hidden="true">◉</span>
-          {user ? 'Tài khoản' : 'Đăng nhập'}
-        </Link>
-      </nav>
-    </header>
+          <button onClick={requestLogout} type="button">
+            Đăng xuất
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <header className={styles.header}>
+        <div className={`container ${styles.content}`}>
+          <Link
+            href={admin ? '/admin' : '/'}
+            className={styles.brand}
+            aria-label={admin ? 'ShopApp quản trị' : 'ShopApp home'}
+          >
+            <span aria-hidden="true">🛍️</span>
+            <span>{admin ? 'ShopApp Quản trị' : 'ShopApp'}</span>
+          </Link>
+
+          <button
+            aria-expanded={menuOpen}
+            aria-label="Mở menu"
+            className={styles.menuButton}
+            onClick={() => setMenuOpen((current) => !current)}
+            type="button"
+          >
+            ☰
+          </button>
+          <nav
+            className={`${styles.navigation} ${menuOpen ? styles.open : ''}`}
+            aria-label="Điều hướng chính"
+          >
+            {admin ? (
+              <>
+                <Link href="/admin">Quản trị</Link>
+                {accountMenu}
+              </>
+            ) : user ? (
+              <>
+                <Link href="/">Trang chủ</Link>
+                <CartIcon />
+                {accountMenu}
+              </>
+            ) : (
+              <>
+                <Link href="/">Trang chủ</Link>
+                <Link href="/login">Đăng nhập</Link>
+                <Link href="/register" className={styles.registerLink}>
+                  Đăng ký
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
+        {!admin && (
+          <nav className={styles.mobileBottom} aria-label="Điều hướng di động">
+            <Link href="/">
+              <span aria-hidden="true">⌂</span>
+              Trang chủ
+            </Link>
+            <Link href="/#catalog-categories">
+              <span aria-hidden="true">☷</span>
+              Danh mục
+            </Link>
+            {user ? <CartIcon /> : <Link href="/login">Đăng nhập</Link>}
+            {user && (
+              <Link href="/orders">
+                <span aria-hidden="true">▤</span>
+                Đơn mua
+              </Link>
+            )}
+            <Link href={user ? '/profile' : '/login'}>
+              <span aria-hidden="true">◉</span>
+              {user ? 'Tài khoản' : 'Đăng nhập'}
+            </Link>
+          </nav>
+        )}
+      </header>
+      {confirmLogout && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <section
+            aria-labelledby="logout-title"
+            aria-modal="true"
+            className={styles.logoutDialog}
+            role="dialog"
+          >
+            <h2 id="logout-title">Đăng xuất?</h2>
+            <p>Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng trang web.</p>
+            <div className={styles.dialogActions}>
+              <button
+                className="btn btn-ghost"
+                disabled={loggingOut}
+                onClick={() => setConfirmLogout(false)}
+                type="button"
+              >
+                Ở lại
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={loggingOut}
+                onClick={() => void confirmLogoutAction()}
+                type="button"
+              >
+                {loggingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }

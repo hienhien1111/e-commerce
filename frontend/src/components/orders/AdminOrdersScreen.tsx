@@ -10,6 +10,7 @@ import {
   OrderStats,
   OrderStatus,
   orderStatusLabel,
+  paymentMethodLabel,
   statusClass,
 } from '@/lib/order';
 import styles from './OrderScreens.module.css';
@@ -155,6 +156,9 @@ function AdminOrdersContent() {
                   <strong>#{order.id.slice(-8).toUpperCase()}</strong>
                   <p className={styles.muted}>
                     {order.customer?.email ?? order.userId}
+                  </p>
+                  <p className={styles.muted}>
+                    {paymentMethodLabel[order.paymentMethod]}
                   </p>
                 </div>
                 <span className={statusClass(order.status)}>

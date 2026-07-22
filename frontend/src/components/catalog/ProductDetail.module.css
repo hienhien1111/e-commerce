@@ -55,6 +55,24 @@
   color: var(--color-text-secondary);
   font-size: 13px;
 }
+
+.variantChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.variantChoices button {
+  border: 1px solid var(--color-border);
+  padding: 7px 10px;
+}
+.variantChoices button:disabled {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+.variantChoices .selectedVariant {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
 .priceBox {
   align-items: baseline;
   background: #fff5f2;

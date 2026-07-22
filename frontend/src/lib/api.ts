@@ -2,8 +2,6 @@
 // API fetch wrapper with HttpOnly cookie session refresh handling
 // ============================================================
 
-import { auth } from './auth';
-
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api'
 ).replace(/\/+$/, '');
@@ -91,19 +89,24 @@ async function fetchApi<T = unknown>(
       return fetchApi<T>(path, options, true);
     }
 
-    handleUnauthorized();
+    notifyUnauthorized();
     throw new ApiError(401, 'Unauthorized');
   }
 
   const data = await parseResponseData(response);
 
   if (!response.ok) {
+    const responseMessage =
+      typeof data === 'object' && data !== null && 'message' in data
+        ? (data as { message?: unknown }).message
+        : undefined;
     const message =
-      (typeof data === 'object' &&
-        data !== null &&
-        'message' in data &&
-        typeof data.message === 'string' &&
-        data.message) ||
+      (typeof responseMessage === 'string' && responseMessage) ||
+      (typeof responseMessage === 'object' &&
+        responseMessage !== null &&
+        'message' in responseMessage &&
+        typeof responseMessage.message === 'string' &&
+        responseMessage.message) ||
       `HTTP ${response.status}`;
     throw new ApiError(response.status, message, data);
   }
@@ -124,10 +127,9 @@ async function tryRefreshToken(): Promise<boolean> {
   }
 }
 
-function handleUnauthorized(): void {
-  auth.logout();
+function notifyUnauthorized(): void {
   if (typeof window !== 'undefined') {
-    window.location.assign('/login');
+    window.dispatchEvent(new Event('auth:expired'));
   }
 }
 

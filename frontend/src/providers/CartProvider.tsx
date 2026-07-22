@@ -10,19 +10,19 @@ import {
   useState,
 } from 'react';
 import { api } from '@/lib/api';
-import { auth } from '@/lib/auth';
 import { Cart, emptyCart } from '@/lib/cart';
 import { CartSidebar } from '@/components/cart/CartSidebar';
 import { useToast } from '@/providers/ToastProvider';
+import { useSession } from '@/providers/SessionProvider';
 
 type CartContextValue = {
   cart: Cart;
   isOpen: boolean;
   setOpen: (isOpen: boolean) => void;
   refresh: () => Promise<void>;
-  addItem: (productId: string, quantity: number) => Promise<void>;
-  updateItem: (productId: string, quantity: number) => Promise<void>;
-  removeItem: (productId: string) => Promise<void>;
+  addItem: (variantId: string, quantity: number) => Promise<void>;
+  updateItem: (variantId: string, quantity: number) => Promise<void>;
+  removeItem: (variantId: string) => Promise<void>;
   clear: () => Promise<void>;
   applyCoupon: (code: string) => Promise<void>;
   removeCoupon: () => Promise<void>;
@@ -34,22 +34,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [isOpen, setOpen] = useState(false);
   const toast = useToast();
+  const { user } = useSession();
 
   const refresh = useCallback(async () => {
-    if (!auth.isLoggedIn()) {
+    if (!user) {
       setCart(emptyCart());
       return;
     }
     setCart(await api.get<Cart>('v1/cart'));
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const syncSession = () => {
       void refresh().catch(() => setCart(emptyCart()));
     };
     syncSession();
-    window.addEventListener('auth:changed', syncSession);
-    return () => window.removeEventListener('auth:changed', syncSession);
   }, [refresh]);
 
   const value = useMemo<CartContextValue>(
@@ -58,10 +57,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       isOpen,
       setOpen,
       refresh,
-      addItem: async (productId, quantity) => {
+      addItem: async (variantId, quantity) => {
         try {
           const result = await api.post<Cart>('v1/cart/items', {
-            productId,
+            variantId,
             quantity,
           });
           setCart(result);
@@ -72,9 +71,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           throw error;
         }
       },
-      updateItem: async (productId, quantity) => {
+      updateItem: async (variantId, quantity) => {
         try {
-          const result = await api.patch<Cart>(`v1/cart/items/${productId}`, {
+          const result = await api.patch<Cart>(`v1/cart/items/${variantId}`, {
             quantity,
           });
           setCart(result);
@@ -83,9 +82,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           throw error;
         }
       },
-      removeItem: async (productId) => {
+      removeItem: async (variantId) => {
         try {
-          await api.delete(`v1/cart/items/${productId}`);
+          await api.delete(`v1/cart/items/${variantId}`);
           await refresh();
           toast.success('Đã xoá sản phẩm khỏi giỏ hàng.');
         } catch (error) {

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { auth, type AuthUser } from '@/lib/auth';
-import { api } from '@/lib/api';
+import { useSession } from '@/providers/SessionProvider';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -16,37 +15,23 @@ export default function AuthGuard({
 }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { status, user } = useSession();
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    let active = true;
-
-    const verifySession = async () => {
-      try {
-        const user = await api.get<AuthUser>('v1/me');
-        if (!active) return;
-
-        auth.setUser(user);
-        if (requireAdmin && !auth.isAdmin()) {
-          router.replace('/');
-          return;
-        }
-
-        setAuthorized(true);
-      } catch {
-        if (!active) return;
-
-        auth.logout();
-        router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-      }
-    };
-
-    void verifySession();
-
-    return () => {
-      active = false;
-    };
-  }, [router, pathname, requireAdmin]);
+    setAuthorized(false);
+    if (status === 'loading') return;
+    if (!user) {
+      const destination = `${pathname}${window.location.search}`;
+      router.replace(`/login?redirect=${encodeURIComponent(destination)}`);
+      return;
+    }
+    if (requireAdmin && user.role?.name !== 'admin') {
+      router.replace('/');
+      return;
+    }
+    setAuthorized(true);
+  }, [pathname, requireAdmin, router, status, user]);
 
   if (!authorized) {
     return (

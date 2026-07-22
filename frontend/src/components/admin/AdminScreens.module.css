@@ -89,6 +89,19 @@
   font-size: 12px;
   font-weight: 600;
 }
+.categoryRow {
+  cursor: pointer;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+.categoryRow:hover td {
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+.categoryRow.selectedRow td {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+.categoryRow.selectedRow td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
 .thumbnail {
   width: 42px;
   height: 42px;
@@ -107,6 +120,7 @@
 }
 .rowActions button {
   color: var(--color-text-link);
+  cursor: pointer;
 }
 .empty {
   padding: 40px;
@@ -183,6 +197,44 @@
   width: 100%;
   color: var(--color-error);
   font-size: 12px;
+}
+.variantPanel {
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+}
+.variantHeading {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+.variantList {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.variantRow {
+  align-items: center;
+  border: 1px solid var(--color-border-light);
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(100px, 1fr) minmax(
+      100px,
+      1fr
+    ) auto auto auto auto;
+  padding: var(--space-2);
+}
+.variantRow button {
+  color: var(--color-text-link);
+}
+.variantForm {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.variantForm > button {
+  justify-self: start;
 }
 .recent {
   display: grid;

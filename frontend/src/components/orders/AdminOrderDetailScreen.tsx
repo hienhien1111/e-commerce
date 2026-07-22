@@ -8,6 +8,7 @@ import {
   nextStatus,
   Order,
   orderStatusLabel,
+  paymentMethodLabel,
   statusClass,
 } from '@/lib/order';
 import { OrderItems, OrderTotals } from './OrderItems';
@@ -90,7 +91,10 @@ function AdminOrderDetailContent({ orderId }: { orderId: string }) {
                 </strong>
               </span>
               <span>
-                Payment: <strong>{order.paymentStatus}</strong>
+                Thanh toán:{' '}
+                <strong>
+                  {paymentMethodLabel[order.paymentMethod]} · {order.paymentStatus}
+                </strong>
               </span>
             </div>
             <OrderItems order={order} />

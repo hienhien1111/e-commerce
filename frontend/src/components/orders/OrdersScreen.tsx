@@ -11,6 +11,7 @@ import {
   OrderPage,
   OrderStatus,
   orderStatusLabel,
+  paymentMethodLabel,
   statusClass,
 } from '@/lib/order';
 import styles from './OrderScreens.module.css';
@@ -118,8 +119,10 @@ function OrdersContent() {
               </div>
               <p className={styles.muted}>
                 {order.items.length} sản phẩm ·{' '}
-                {order.paymentStatus === 'PENDING'
-                  ? 'Chưa thanh toán'
+                {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING'
+                  ? paymentMethodLabel.COD
+                  : order.paymentStatus === 'PENDING'
+                    ? 'Chưa thanh toán MoMo'
                   : `Thanh toán: ${order.paymentStatus}`}
               </p>
               <div className={styles.orderBottom}>

@@ -3,6 +3,7 @@ import '@/styles/globals.css';
 import { Header } from '@/components/Header';
 import { CartProvider } from '@/providers/CartProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
+import { SessionProvider } from '@/providers/SessionProvider';
 
 export const metadata: Metadata = {
   title: {
@@ -22,10 +23,12 @@ export default function RootLayout({
     <html lang="vi">
       <body>
         <ToastProvider>
-          <CartProvider>
-            <Header />
-            {children}
-          </CartProvider>
+          <SessionProvider>
+            <CartProvider>
+              <Header />
+              {children}
+            </CartProvider>
+          </SessionProvider>
         </ToastProvider>
       </body>
     </html>

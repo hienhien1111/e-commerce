@@ -32,6 +32,9 @@ export function AdminCategoriesScreen() {
   const toast = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [active, setActive] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null,
+  );
   const [modalCategory, setModalCategory] = useState<
     Category | null | undefined
   >(undefined);
@@ -56,6 +59,7 @@ export function AdminCategoriesScreen() {
     setForm((current) => ({ ...current, [key]: value }));
   const open = (category?: Category) => {
     setError(null);
+    setSelectedCategoryId(category?.id ?? null);
     setForm(category ? toForm(category) : blank());
     setModalCategory(category ?? null);
   };
@@ -156,7 +160,16 @@ export function AdminCategoriesScreen() {
                 </tr>
               ) : (
                 categories.map((category) => (
-                  <tr key={category.id}>
+                  <tr
+                    aria-selected={selectedCategoryId === category.id}
+                    className={`${styles.categoryRow} ${
+                      selectedCategoryId === category.id
+                        ? styles.selectedRow
+                        : ''
+                    }`}
+                    key={category.id}
+                    onClick={() => setSelectedCategoryId(category.id)}
+                  >
                     <td>
                       <b>{category.name}</b>
                       <br />

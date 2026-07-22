@@ -13,8 +13,7 @@ import {
   Req,
   Res,
   UnprocessableEntityException,
-  ParseFilePipe,
-  FileTypeValidator,
+  BadRequestException,
   UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -72,6 +71,7 @@ import { AuthLoginDto } from '../dtos/auth-login.dto';
 import { NullableType } from '@/utils/types/nullable.type';
 import { User } from '@/domain/entities/user';
 import { UserDto } from '@/presentation/http/dtos/user.dto';
+import { getImageFileFormat } from '@/shared/utils/image-file-signature';
 import { WebAuthnLoginDto } from '../dtos/webauthn-login.dto';
 import {
   clearAuthCookies,
@@ -241,7 +241,8 @@ export class AuthController {
         new GoogleLoginCommand(req.user),
       );
       setAuthCookies(res, result, this.configService);
-      redirectUrl.pathname = '/profile';
+      redirectUrl.pathname =
+        result.user.role?.name === 'admin' ? '/admin' : '/';
     } catch (error: unknown) {
       const validationError = getValidationErrorCode(error);
       redirectUrl.searchParams.set(
@@ -313,15 +314,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   public uploadAvatar(
     @CurrentUser() user: AuthenticatedUser,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new FileTypeValidator({ fileType: /^image\/(jpeg|png)$/ }),
-        ],
-      }),
-    )
-    file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ): Promise<User> {
+    const format = file ? getImageFileFormat(file.buffer) : null;
+    if (!file || (format !== 'jpeg' && format !== 'png')) {
+      throw new BadRequestException(
+        'A valid JPEG or PNG avatar file is required',
+      );
+    }
     return this.commandBus.execute(
       new UploadAvatarCommand(user.id, file.buffer),
     );

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
 import { ApiError, api } from '@/lib/api';
@@ -10,6 +10,7 @@ import {
   Order,
   OrderStatus,
   orderStatusLabel,
+  paymentMethodLabel,
   statusClass,
 } from '@/lib/order';
 import { OrderItems, OrderTotals } from './OrderItems';
@@ -74,7 +75,9 @@ function OrderDetailContent({ orderId }: { orderId: string }) {
       <div className="container">
         <h1>Đơn #{order.id.slice(-8).toUpperCase()}</h1>
         {searchParams.get('payment') === 'success' && (
-          <p className={styles.paymentSuccess}>Thanh toán MoMo đã được xác nhận.</p>
+          <p className={styles.paymentSuccess}>
+            Thanh toán MoMo đã được xác nhận.
+          </p>
         )}
         <div className={styles.grid}>
           <section className={`card ${styles.card}`}>
@@ -114,14 +117,22 @@ function OrderDetailContent({ orderId }: { orderId: string }) {
             </address>
             <h2 style={{ marginTop: 24 }}>Thanh toán</h2>
             <p className={styles.muted}>
-              {order.paymentStatus === 'PENDING'
-                ? 'Chưa thanh toán.'
-                : `Trạng thái: ${order.paymentStatus}`}
+              {paymentMethodLabel[order.paymentMethod]} ·{' '}
+              {order.paymentMethod === 'COD' &&
+              order.paymentStatus === 'PENDING'
+                ? 'Thanh toán khi nhận hàng.'
+                : order.paymentStatus === 'PENDING'
+                  ? 'Chưa thanh toán.'
+                  : `Trạng thái: ${order.paymentStatus}`}
             </p>
             {order.status !== 'CANCELLED' &&
+              order.paymentMethod === 'MOMO' &&
               order.paymentStatus === 'PENDING' && (
                 <div className={styles.actions}>
-                  <Link className="btn btn-primary" href={`/orders/${order.id}/payment`}>
+                  <Link
+                    className="btn btn-primary"
+                    href={`/orders/${order.id}/payment`}
+                  >
                     Thanh toán MoMo
                   </Link>
                 </div>
@@ -147,8 +158,12 @@ function OrderDetailContent({ orderId }: { orderId: string }) {
 
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
   return (
-    <AuthGuard>
-      <OrderDetailContent orderId={orderId} />
-    </AuthGuard>
+    <Suspense
+      fallback={<main className={styles.page}>Đang tải đơn hàng…</main>}
+    >
+      <AuthGuard>
+        <OrderDetailContent orderId={orderId} />
+      </AuthGuard>
+    </Suspense>
   );
 }

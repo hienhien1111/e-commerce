@@ -94,6 +94,11 @@ export function CartSidebar() {
                   </div>
                   <div className={styles.itemInfo}>
                     <strong>{item.product.name}</strong>
+                    {item.product.label && (
+                      <span className={styles.warning}>
+                        {item.product.label}
+                      </span>
+                    )}
                     <span className={styles.price}>
                       {formatVnd(item.product.price)}
                     </span>
@@ -108,7 +113,7 @@ export function CartSidebar() {
                           disabled={busy !== null || item.quantity <= 1}
                           onClick={() =>
                             void run(item.id, () =>
-                              updateItem(item.productId, item.quantity - 1),
+                              updateItem(item.variantId, item.quantity - 1),
                             )
                           }
                           type="button"
@@ -124,7 +129,7 @@ export function CartSidebar() {
                           }
                           onClick={() =>
                             void run(item.id, () =>
-                              updateItem(item.productId, item.quantity + 1),
+                              updateItem(item.variantId, item.quantity + 1),
                             )
                           }
                           type="button"
@@ -136,7 +141,7 @@ export function CartSidebar() {
                         className={styles.remove}
                         disabled={busy !== null}
                         onClick={() =>
-                          void run(item.id, () => removeItem(item.productId))
+                          void run(item.id, () => removeItem(item.variantId))
                         }
                         type="button"
                       >

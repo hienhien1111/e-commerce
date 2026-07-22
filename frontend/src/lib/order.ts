@@ -7,6 +7,7 @@ export type OrderStatus =
   | 'CANCELLED';
 
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+export type PaymentMethod = 'COD' | 'MOMO';
 
 export type ShippingAddress = {
   fullName: string;
@@ -20,10 +21,16 @@ export type ShippingAddress = {
 export type OrderItem = {
   id: string;
   productId: string;
+  variantId: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  snapshot: { name: string; sku: string | null; imageUrl: string | null };
+  snapshot: {
+    name: string;
+    sku: string | null;
+    imageUrl: string | null;
+    variantLabel: string | null;
+  };
 };
 
 export type Order = {
@@ -33,6 +40,7 @@ export type Order = {
   subtotal: number;
   discountAmount: number;
   total: number;
+  paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   shippingAddress: ShippingAddress;
   couponId: string | null;
@@ -65,6 +73,11 @@ export const orderStatusLabel: Record<OrderStatus, string> = {
 
 export const statusClass = (status: OrderStatus) =>
   `badge badge-${status.toLowerCase()}`;
+
+export const paymentMethodLabel: Record<PaymentMethod, string> = {
+  COD: 'Thanh toán khi nhận hàng',
+  MOMO: 'Ví MoMo',
+};
 
 export const canCustomerCancel = (order: Order) =>
   order.paymentStatus !== 'PAID' &&

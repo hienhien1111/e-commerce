@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import AuthGuard from '@/components/AuthGuard';
 import { ApiError, api } from '@/lib/api';
@@ -19,11 +19,33 @@ function formatRemaining(expiresAt: string | null, now: number): string | null {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function formatPaymentError(cause: unknown): string {
+  if (!(cause instanceof ApiError))
+    return 'Không thể tạo phiên thanh toán MoMo.';
+  const payload = cause.data as
+    | { code?: unknown; message?: unknown }
+    | { message?: { code?: unknown; message?: unknown } }
+    | undefined;
+  const detail =
+    typeof payload?.message === 'object' && payload.message !== null
+      ? payload.message
+      : payload;
+  const code =
+    detail &&
+    typeof detail === 'object' &&
+    'code' in detail &&
+    typeof detail.code === 'string'
+      ? detail.code
+      : null;
+  return `${cause.message}${code ? ` (mã ${code})` : ''}`;
+}
+
 function MomoPaymentContent({ orderId }: { orderId: string }) {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const initiated = useRef(false);
   const toast = useToast();
 
   const initiate = useCallback(async () => {
@@ -32,12 +54,9 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
     try {
       setPayment(await api.post<Payment>('v1/payments/initiate', { orderId }));
     } catch (cause) {
-      setError(
-        cause instanceof ApiError
-          ? cause.message
-          : 'Không thể tạo phiên thanh toán MoMo.',
-      );
-      toast.error('Không thể tạo phiên thanh toán MoMo.');
+      const message = formatPaymentError(cause);
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -58,6 +77,8 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
   }, [orderId]);
 
   useEffect(() => {
+    if (initiated.current) return;
+    initiated.current = true;
     void initiate();
   }, [initiate]);
 
@@ -74,6 +95,11 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
 
   const remaining = formatRemaining(payment?.expiresAt ?? null, now);
   const expired = remaining === 'Đã hết hạn';
+  const waitingForSession =
+    payment?.status === 'PENDING' &&
+    !payment.payUrl &&
+    !payment.deeplink &&
+    !payment.qrCodeUrl;
 
   return (
     <main className={styles.page}>
@@ -101,40 +127,53 @@ function MomoPaymentContent({ orderId }: { orderId: string }) {
               </Link>
             </div>
           )}
-          {!loading && payment?.status === 'PENDING' && !expired && (
+          {!loading && waitingForSession && (
             <div className={styles.paymentSession}>
               <strong className={styles.paymentAmount}>
                 {formatVnd(payment.amount)}
               </strong>
-              {payment.qrCodeUrl ? (
-                <div className={styles.qr}>
-                  <QRCodeSVG value={payment.qrCodeUrl} size={220} />
-                </div>
-              ) : (
-                <p className={styles.notice}>
-                  Không có mã QR, hãy dùng liên kết bên dưới.
-                </p>
-              )}
-              <p className={styles.countdown}>
-                Phiên còn hiệu lực: {remaining}
-              </p>
-              <div className={styles.actions}>
-                {payment.deeplink && (
-                  <a className="btn btn-primary" href={payment.deeplink}>
-                    Mở ứng dụng MoMo
-                  </a>
-                )}
-                {payment.payUrl && (
-                  <a className="btn btn-ghost" href={payment.payUrl}>
-                    Mở trang thanh toán
-                  </a>
-                )}
-              </div>
-              <p className={styles.muted}>
-                Đang kiểm tra trạng thái mỗi 3 giây…
+              <p className={styles.notice}>
+                Đang tạo phiên MoMo an toàn. Trang sẽ tự cập nhật sau vài giây.
               </p>
             </div>
           )}
+          {!loading &&
+            payment?.status === 'PENDING' &&
+            !waitingForSession &&
+            !expired && (
+              <div className={styles.paymentSession}>
+                <strong className={styles.paymentAmount}>
+                  {formatVnd(payment.amount)}
+                </strong>
+                {payment.qrCodeUrl ? (
+                  <div className={styles.qr}>
+                    <QRCodeSVG value={payment.qrCodeUrl} size={220} />
+                  </div>
+                ) : (
+                  <p className={styles.notice}>
+                    Không có mã QR, hãy dùng liên kết bên dưới.
+                  </p>
+                )}
+                <p className={styles.countdown}>
+                  Phiên còn hiệu lực: {remaining}
+                </p>
+                <div className={styles.actions}>
+                  {payment.deeplink && (
+                    <a className="btn btn-primary" href={payment.deeplink}>
+                      Mở ứng dụng MoMo
+                    </a>
+                  )}
+                  {payment.payUrl && (
+                    <a className="btn btn-ghost" href={payment.payUrl}>
+                      Mở trang thanh toán
+                    </a>
+                  )}
+                </div>
+                <p className={styles.muted}>
+                  Đang kiểm tra trạng thái mỗi 3 giây…
+                </p>
+              </div>
+            )}
           {!loading && (expired || payment?.status === 'FAILED' || error) && (
             <div className={styles.paymentRetry}>
               <p className={styles.notice}>

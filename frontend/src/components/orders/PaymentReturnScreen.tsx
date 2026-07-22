@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
 import { decodePaymentReturnOrderId } from '@/lib/payment';
@@ -23,8 +23,12 @@ function PaymentReturnContent() {
 
 export function PaymentReturnScreen() {
   return (
-    <AuthGuard>
-      <PaymentReturnContent />
-    </AuthGuard>
+    <Suspense
+      fallback={<main className="container">Đang quay lại thanh toán…</main>}
+    >
+      <AuthGuard>
+        <PaymentReturnContent />
+      </AuthGuard>
+    </Suspense>
   );
 }

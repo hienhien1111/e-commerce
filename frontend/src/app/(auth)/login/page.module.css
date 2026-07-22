@@ -55,7 +55,7 @@
   align-items: center;
   text-align: center;
   color: var(--color-text-muted);
-  margin-bottom: 16px;
+  margin: 24px 0 16px;
   font-size: 12px;
 }
 
