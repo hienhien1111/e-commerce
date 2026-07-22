@@ -52,4 +52,20 @@ describe('Cart', () => {
     expect(cart.items).toEqual([]);
     expect(cart.couponId).toBeNull();
   });
+
+  it('attaches and removes a coupon without changing cart items', () => {
+    const cart = CartFactory.create({
+      userId: 'user-1',
+      couponId: null,
+      items: [item('product-1', 1)],
+    });
+
+    cart.applyCoupon('coupon-1');
+    expect(cart.couponId).toBe('coupon-1');
+    expect(cart.items).toHaveLength(1);
+
+    cart.removeCoupon();
+    expect(cart.couponId).toBeNull();
+    expect(cart.items).toHaveLength(1);
+  });
 });
