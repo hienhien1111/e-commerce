@@ -21,7 +21,11 @@ export function getValidationError(
   error: unknown,
   field: string,
 ): string | undefined {
-  if (!(error instanceof ApiError) || typeof error.data !== 'object') {
+  if (
+    !(error instanceof ApiError) ||
+    typeof error.data !== 'object' ||
+    error.data === null
+  ) {
     return undefined;
   }
 
