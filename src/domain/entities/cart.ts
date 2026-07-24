@@ -30,9 +30,9 @@ export class Cart extends BaseDomainModel<CartProps> {
 
   private validate(): void {
     if (!this.props.userId) throw new Error('Cart user is required');
-    const productIds = this.props.items.map((item) => item.productId);
-    if (new Set(productIds).size !== productIds.length) {
-      throw new Error('Cart cannot contain the same product twice');
+    const variantIds = this.props.items.map((item) => item.variantId);
+    if (new Set(variantIds).size !== variantIds.length) {
+      throw new Error('Cart cannot contain the same variant twice');
     }
   }
 

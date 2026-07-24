@@ -10,6 +10,8 @@ import { OrderItemFactory } from '@/domain/factories/order-item.factory';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
 import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
+import { ReservationStatusEnum } from '@/domain/enums/reservation-status.enum';
+import { Prisma } from '@/generated/prisma/client';
 
 export type PrismaOrderWithRelations = PrismaOrder & {
   items: PrismaOrderItem[];
@@ -27,6 +29,10 @@ export class OrderMapper {
       total: raw.total.toNumber(),
       paymentMethod: raw.paymentMethod as PaymentMethodEnum,
       paymentStatus: raw.paymentStatus as PaymentStatusEnum,
+      reservationStatus: raw.reservationStatus as ReservationStatusEnum,
+      reservationExpiresAt: raw.reservationExpiresAt,
+      cancellationReason: raw.cancellationReason,
+      paidAt: raw.paidAt,
       shippingAddress: raw.shippingAddress as unknown as ShippingAddress,
       couponId: raw.couponId,
       note: raw.note,
@@ -55,5 +61,27 @@ export class OrderMapper {
       updatedAt: raw.updatedAt,
       deletedAt: raw.deletedAt,
     });
+  }
+
+  static toPersistence(order: Order): Prisma.OrderUncheckedUpdateInput {
+    return {
+      userId: order.userId,
+      status: order.status,
+      reservationStatus: order.reservationStatus,
+      reservationExpiresAt: order.reservationExpiresAt,
+      cancellationReason: order.cancellationReason,
+      subtotal: order.subtotal,
+      discountAmount: order.discountAmount,
+      total: order.total,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      paidAt: order.paidAt,
+      shippingAddress:
+        order.shippingAddress as unknown as Prisma.InputJsonValue,
+      couponId: order.couponId,
+      note: order.note,
+      updatedAt: order.updatedAt,
+      deletedAt: order.deletedAt,
+    };
   }
 }

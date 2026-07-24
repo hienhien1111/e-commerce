@@ -32,7 +32,9 @@ export class PrismaCouponRepository implements CouponRepositoryPort {
   }
 
   async findByCode(code: string): Promise<NullableType<Coupon>> {
-    const coupon = await this.prisma.coupon.findUnique({ where: { code } });
+    const coupon = await this.prisma.coupon.findFirst({
+      where: { code, deletedAt: null },
+    });
     return coupon ? CouponMapper.toDomain(coupon) : null;
   }
 

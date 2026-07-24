@@ -64,7 +64,7 @@ describe('MomoPaymentGateway', () => {
     );
   });
 
-  it('uses a 30-second abort signal and surfaces gateway outages as 503', async () => {
+  it('uses a 30-second abort signal and surfaces a stable gateway error', async () => {
     const gateway = new MomoPaymentGateway(config());
     const fetchMock = jest
       .spyOn(global, 'fetch')
@@ -86,7 +86,7 @@ describe('MomoPaymentGateway', () => {
         redirectUrl: momo.redirectUrl,
         ipnUrl: momo.ipnUrl,
       }),
-    ).rejects.toMatchObject({ status: 503 });
+    ).rejects.toMatchObject({ code: 'MOMO_GATEWAY_UNAVAILABLE' });
     expect(fetchMock).toHaveBeenCalledWith(
       'https://momo.test/v2/gateway/api/create',
       expect.objectContaining({

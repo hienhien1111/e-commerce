@@ -12,6 +12,10 @@ import { SettleMomoWebhookHandler } from '@/application/payment/commands/settle-
 import { GetPaymentForOrderHandler } from '@/application/payment/queries/get-payment-for-order';
 import { PaymentController } from '@/presentation/http/controllers/payment.controller';
 import { MomoWebhookController } from '@/presentation/http/controllers/momo-webhook.controller';
+import { CommerceQueueService } from '@/infrastructure/messaging/commerce-queue.service';
+import { PrismaOutboxRepository } from '@/infrastructure/messaging/prisma-outbox.repository';
+import { PrismaCommerceSagaRepository } from '@/infrastructure/persistence/repositories/prisma-commerce-saga.repository';
+import { PrismaPaymentRefundRepository } from '@/infrastructure/persistence/repositories/prisma-payment-refund.repository';
 
 @Module({
   imports: [CqrsModule, PrismaModule, OrderModule],
@@ -19,6 +23,10 @@ import { MomoWebhookController } from '@/presentation/http/controllers/momo-webh
   providers: [
     PrismaPaymentRepository,
     MomoPaymentGateway,
+    PrismaOutboxRepository,
+    PrismaCommerceSagaRepository,
+    PrismaPaymentRefundRepository,
+    CommerceQueueService,
     InitiatePaymentHandler,
     SettleMomoWebhookHandler,
     GetPaymentForOrderHandler,

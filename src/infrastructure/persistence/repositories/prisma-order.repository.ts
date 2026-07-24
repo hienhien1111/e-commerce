@@ -1,26 +1,23 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@/generated/prisma/client';
 import { PrismaService } from '@/infrastructure/persistence/prisma/prisma.service';
 import type { OrderRepositoryPort } from '@/application/order/ports/order.repository.port';
-import type { OrderCheckoutPort } from '@/application/order/ports/order-checkout.port';
-import type { OrderCancellationPort } from '@/application/order/ports/order-cancellation.port';
 import {
   AdminOrderFilters,
   OrderFilters,
   OrderPage,
   OrderStats,
 } from '@/application/order/types/order.types';
-import { Order, ShippingAddress } from '@/domain/entities/order';
+import { Order } from '@/domain/entities/order';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
-import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
-import { DiscountTypeEnum } from '@/domain/enums/discount-type.enum';
-import { generateUuidV7 } from '@/utils/uuid-v7';
 import { NullableType } from '@/utils/types/nullable.type';
 import {
   OrderMapper,
   PrismaOrderWithRelations,
 } from '@/infrastructure/persistence/mappers/order.mapper';
+import { generateUuidV7 } from '@/utils/uuid-v7';
+import { CommerceEventType } from '@/infrastructure/messaging/commerce-event.constants';
 
 const ORDER_INCLUDE = {
   items: { orderBy: { id: 'asc' } },
@@ -37,9 +34,7 @@ const emptyCounts = (): Record<OrderStatusEnum, number> => ({
 });
 
 @Injectable()
-export class PrismaOrderRepository
-  implements OrderRepositoryPort, OrderCheckoutPort, OrderCancellationPort
-{
+export class PrismaOrderRepository implements OrderRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string): Promise<NullableType<Order>> {
@@ -76,10 +71,65 @@ export class PrismaOrderRepository
   }
 
   async findAdminPage(filters: AdminOrderFilters): Promise<OrderPage> {
+    const exactOrderId =
+      filters.search &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        filters.search,
+      )
+        ? filters.search
+        : undefined;
     const where: Prisma.OrderWhereInput = {
       deletedAt: null,
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.userId ? { userId: filters.userId } : {}),
+      ...(filters.paymentMethod
+        ? { paymentMethod: filters.paymentMethod }
+        : {}),
+      ...(filters.paymentStatus
+        ? { paymentStatus: filters.paymentStatus }
+        : {}),
+      ...(filters.reservationStatus
+        ? { reservationStatus: filters.reservationStatus }
+        : {}),
+      ...(filters.search
+        ? {
+            OR: [
+              ...(exactOrderId ? [{ id: exactOrderId }] : []),
+              {
+                user: {
+                  is: {
+                    OR: [
+                      {
+                        email: {
+                          contains: filters.search,
+                          mode: 'insensitive' as const,
+                        },
+                      },
+                      {
+                        firstName: {
+                          contains: filters.search,
+                          mode: 'insensitive' as const,
+                        },
+                      },
+                      {
+                        lastName: {
+                          contains: filters.search,
+                          mode: 'insensitive' as const,
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                shippingAddress: {
+                  path: ['phone'],
+                  string_contains: filters.search,
+                },
+              },
+            ],
+          }
+        : {}),
       ...(filters.from || filters.to
         ? {
             createdAt: {
@@ -95,7 +145,7 @@ export class PrismaOrderRepository
   async getStats(
     filters: Pick<AdminOrderFilters, 'from' | 'to'>,
   ): Promise<OrderStats> {
-    const dateFilter =
+    const countDateFilter =
       filters.from || filters.to
         ? {
             createdAt: {
@@ -104,17 +154,26 @@ export class PrismaOrderRepository
             },
           }
         : {};
+    const revenueDateFilter =
+      filters.from || filters.to
+        ? {
+            paidAt: {
+              ...(filters.from ? { gte: filters.from } : {}),
+              ...(filters.to ? { lte: filters.to } : {}),
+            },
+          }
+        : {};
     const [groups, revenue] = await Promise.all([
       this.prisma.order.groupBy({
         by: ['status'],
-        where: { deletedAt: null, ...dateFilter },
+        where: { deletedAt: null, ...countDateFilter },
         _count: { _all: true },
       }),
       this.prisma.order.aggregate({
         where: {
           deletedAt: null,
-          status: { not: OrderStatusEnum.CANCELLED },
-          ...dateFilter,
+          paymentStatus: PaymentStatusEnum.PAID,
+          ...revenueDateFilter,
         },
         _sum: { total: true },
       }),
@@ -126,315 +185,89 @@ export class PrismaOrderRepository
   }
 
   async save(order: Order): Promise<Order> {
-    const saved = await this.prisma.order.update({
-      where: { id: order.id },
-      data: { status: order.status, updatedAt: order.updatedAt },
-      include: ORDER_INCLUDE,
+    const saved = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "orders" WHERE "id" = ${order.id}::uuid FOR UPDATE`;
+      const current = await tx.order.findUnique({
+        where: { id: order.id },
+        select: { status: true },
+      });
+      if (!current) throw new Error('Order disappeared while saving');
+      const saved = await tx.order.update({
+        where: { id: order.id },
+        data: OrderMapper.toPersistence(order),
+        include: ORDER_INCLUDE,
+      });
+      if (
+        current.status !== OrderStatusEnum.SHIPPED &&
+        order.status === OrderStatusEnum.SHIPPED
+      ) {
+        await this.fulfillReservedInventory(tx, order.id);
+      }
+      return saved;
     });
     return OrderMapper.toDomain(saved as PrismaOrderWithRelations);
   }
 
-  async checkout(input: {
-    userId: string;
-    shippingAddress: ShippingAddress;
-    paymentMethod: PaymentMethodEnum;
-  }): Promise<Order> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT "id" FROM "carts" WHERE "user_id" = ${input.userId} FOR UPDATE`;
-      const cart = await tx.cart.findUnique({
-        where: { userId: input.userId },
-        include: { items: { orderBy: { id: 'asc' } } },
-      });
-      if (!cart || cart.items.length === 0) {
-        throw new UnprocessableEntityException('Cart is empty');
-      }
-
-      return this.completeCheckout(tx, {
-        userId: input.userId,
-        lines: cart.items,
-        cartId: cart.id,
-        couponId: cart.couponId,
-        shippingAddress: input.shippingAddress,
-        paymentMethod: input.paymentMethod,
-      });
-    });
-  }
-
-  async checkoutBuyNow(input: {
-    userId: string;
-    productId?: string;
-    variantId?: string;
-    quantity: number;
-    couponCode?: string;
-    shippingAddress: ShippingAddress;
-    paymentMethod: PaymentMethodEnum;
-  }): Promise<Order> {
-    return this.prisma.$transaction(async (tx) => {
-      const variant = input.variantId
-        ? await tx.productVariant.findFirst({
-            where: { id: input.variantId, deletedAt: null },
-          })
-        : input.productId
-          ? await tx.productVariant.findFirst({
-              where: {
-                productId: input.productId,
-                label: null,
-                deletedAt: null,
-              },
-            })
-          : null;
-      if (!variant) {
-        throw new UnprocessableEntityException(
-          'Choose a product variant before checkout',
-        );
-      }
-      return this.completeCheckout(tx, {
-        userId: input.userId,
-        lines: [
-          {
-            productId: variant.productId,
-            variantId: variant.id,
-            quantity: input.quantity,
-          },
-        ],
-        couponCode: input.couponCode,
-        shippingAddress: input.shippingAddress,
-        paymentMethod: input.paymentMethod,
-      });
-    });
-  }
-
-  private async completeCheckout(
+  private async fulfillReservedInventory(
     tx: Prisma.TransactionClient,
-    input: {
-      userId: string;
-      lines: ReadonlyArray<{
-        productId: string;
-        variantId: string;
-        quantity: number;
-      }>;
-      cartId?: string;
-      couponId?: string | null;
-      couponCode?: string;
-      shippingAddress: ShippingAddress;
-      paymentMethod: PaymentMethodEnum;
-    },
-  ): Promise<Order> {
-    const productIds = [...new Set(input.lines.map((item) => item.productId))];
-    const variantIds = [...new Set(input.lines.map((item) => item.variantId))];
-    await tx.$queryRaw`SELECT "id" FROM "products" WHERE "id" IN (${Prisma.join(productIds)}) FOR UPDATE`;
-    await tx.$queryRaw`SELECT "id" FROM "product_variants" WHERE "id" IN (${Prisma.join(variantIds)}) FOR UPDATE`;
-    const products = await tx.product.findMany({
-      where: { id: { in: productIds } },
-      include: {
-        images: {
-          orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
-          take: 1,
+    orderId: string,
+  ): Promise<void> {
+    const reservations = await tx.inventoryReservation.findMany({
+      where: { orderId, status: 'RESERVED' },
+      include: { variant: { select: { productId: true } } },
+    });
+    if (reservations.length === 0) return;
+    const warehouseIds = [
+      ...new Set(reservations.map((item) => item.warehouseId)),
+    ].sort();
+    const variantIds = [
+      ...new Set(reservations.map((item) => item.variantId)),
+    ].sort();
+    await tx.$queryRaw`SELECT "variant_id" FROM "inventory_balances" WHERE "warehouse_id" IN (${Prisma.join(warehouseIds)}) AND "variant_id" IN (${Prisma.join(variantIds)}) ORDER BY "warehouse_id", "variant_id" FOR UPDATE`;
+    for (const reservation of reservations) {
+      await tx.inventoryBalance.update({
+        where: {
+          warehouseId_variantId: {
+            warehouseId: reservation.warehouseId,
+            variantId: reservation.variantId,
+          },
         },
-      },
-    });
-    const variants = await tx.productVariant.findMany({
-      where: { id: { in: variantIds } },
-      include: { image: true },
-    });
-    const byId = new Map(products.map((product) => [product.id, product]));
-    const variantsById = new Map(
-      variants.map((variant) => [variant.id, variant]),
-    );
-    for (const item of input.lines) {
-      const product = byId.get(item.productId);
-      const variant = variantsById.get(item.variantId);
-      if (
-        !product ||
-        !variant ||
-        variant.productId !== item.productId ||
-        product.deletedAt ||
-        !product.isActive ||
-        variant.deletedAt ||
-        !variant.isActive ||
-        variant.stock < item.quantity
-      ) {
-        throw new UnprocessableEntityException(
-          'Order contains unavailable or insufficient-stock products',
-        );
-      }
-    }
-
-    const subtotal = input.lines.reduce(
-      (sum, item) =>
-        sum +
-        variantsById.get(item.variantId)!.price.toNumber() * item.quantity,
-      0,
-    );
-    const coupon = await this.lockCoupon(tx, input.couponId, input.couponCode);
-    const discountAmount = coupon
-      ? this.calculateDiscount(coupon, subtotal)
-      : 0;
-    const couponId = coupon?.id ?? null;
-    const orderId = generateUuidV7();
-    const created = await tx.order.create({
-      data: {
-        id: orderId,
-        userId: input.userId,
-        status: OrderStatusEnum.PENDING,
-        subtotal,
-        discountAmount,
-        total: subtotal - discountAmount,
-        paymentMethod: input.paymentMethod,
-        paymentStatus: PaymentStatusEnum.PENDING,
-        shippingAddress:
-          input.shippingAddress as unknown as Prisma.InputJsonValue,
-        couponId,
-        items: {
-          create: input.lines.map((item) => {
-            const product = byId.get(item.productId)!;
-            const variant = variantsById.get(item.variantId)!;
-            const unitPrice = variant.price.toNumber();
-            return {
-              id: generateUuidV7(),
-              productId: item.productId,
-              variantId: item.variantId,
-              quantity: item.quantity,
-              unitPrice,
-              totalPrice: unitPrice * item.quantity,
-              snapshot: {
-                name: product.name,
-                sku: variant.sku,
-                imageUrl: variant.image?.url ?? product.images[0]?.url ?? null,
-                variantLabel: variant.label,
-              },
-            };
-          }),
+        data: {
+          onHand: { decrement: reservation.quantity },
+          reserved: { decrement: reservation.quantity },
         },
-      },
-      include: ORDER_INCLUDE,
-    });
-    for (const item of input.lines) {
-      await tx.productVariant.update({
-        where: { id: item.variantId },
-        data: { stock: { decrement: item.quantity } },
       });
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { stock: { decrement: item.quantity } },
+      await tx.inventoryReservation.update({
+        where: { id: reservation.id },
+        data: { status: 'FULFILLED', releasedAt: new Date() },
       });
-    }
-    if (couponId) {
-      await tx.coupon.update({
-        where: { id: couponId },
-        data: { usedCount: { increment: 1 } },
-      });
-      await tx.couponUsage.create({
+      await tx.inventoryMovement.create({
         data: {
           id: generateUuidV7(),
-          couponId,
-          userId: input.userId,
+          eventId: `order-fulfillment:${orderId}:${reservation.variantId}`,
+          warehouseId: reservation.warehouseId,
+          variantId: reservation.variantId,
+          reservationId: reservation.id,
           orderId,
+          type: 'FULFILLMENT',
+          quantity: -reservation.quantity,
+          note: 'Order shipped',
         },
       });
     }
-    if (input.cartId) await tx.cart.delete({ where: { id: input.cartId } });
-    return OrderMapper.toDomain(created as PrismaOrderWithRelations);
-  }
-
-  private async lockCoupon(
-    tx: Prisma.TransactionClient,
-    couponId: string | null | undefined,
-    couponCode: string | undefined,
-  ) {
-    if (!couponId && !couponCode) return null;
-    if (couponId) {
-      await tx.$queryRaw`SELECT "id" FROM "coupons" WHERE "id" = ${couponId} FOR UPDATE`;
-    } else {
-      await tx.$queryRaw`SELECT "id" FROM "coupons" WHERE "code" = ${couponCode!} FOR UPDATE`;
-    }
-    const coupon = await tx.coupon.findFirst({
-      where: {
-        ...(couponId ? { id: couponId } : { code: couponCode! }),
-        deletedAt: null,
-      },
-    });
-    if (!coupon) {
-      throw new UnprocessableEntityException(
-        'Applied coupon is no longer valid',
-      );
-    }
-    return coupon;
-  }
-
-  private calculateDiscount(
-    coupon: Awaited<
-      ReturnType<Prisma.TransactionClient['coupon']['findFirst']>
-    >,
-    subtotal: number,
-  ): number {
-    if (!coupon) return 0;
-    const invalid =
-      !coupon.isActive ||
-      (coupon.expiresAt !== null && coupon.expiresAt <= new Date()) ||
-      (coupon.maxUsage !== null && coupon.usedCount >= coupon.maxUsage) ||
-      (coupon.minOrderAmount !== null &&
-        subtotal < coupon.minOrderAmount.toNumber());
-    if (invalid) {
-      throw new UnprocessableEntityException(
-        'Applied coupon is no longer valid',
-      );
-    }
-    const value = coupon.discountValue.toNumber();
-    return coupon.discountType === DiscountTypeEnum.FIXED_AMOUNT
-      ? Math.min(value, subtotal)
-      : Math.min(
-          Math.floor((subtotal * value) / 100),
-          coupon.maxDiscount?.toNumber() ?? Number.MAX_SAFE_INTEGER,
-          subtotal,
-        );
-  }
-
-  async cancel(input: {
-    orderId: string;
-    allowProcessing: boolean;
-  }): Promise<Order> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT "id" FROM "orders" WHERE "id" = ${input.orderId} FOR UPDATE`;
-      const order = await tx.order.findFirst({
-        where: { id: input.orderId, deletedAt: null },
-        include: { items: true, couponUsages: true },
+    for (const productId of [
+      ...new Set(reservations.map((item) => item.variant.productId)),
+    ].sort()) {
+      await tx.outboxMessage.create({
+        data: {
+          id: generateUuidV7(),
+          aggregateType: 'Product',
+          aggregateId: productId,
+          eventType: CommerceEventType.CATALOG_PROJECTION_REFRESH_REQUESTED,
+          payload: { productId },
+        },
       });
-      if (!order)
-        throw new UnprocessableEntityException('Order no longer exists');
-      const validStatus =
-        order.status === OrderStatusEnum.PENDING ||
-        order.status === OrderStatusEnum.CONFIRMED ||
-        (input.allowProcessing && order.status === OrderStatusEnum.PROCESSING);
-      if (!validStatus || order.paymentStatus === PaymentStatusEnum.PAID) {
-        throw new UnprocessableEntityException('Order cannot be cancelled');
-      }
-      await tx.$queryRaw`SELECT "id" FROM "products" WHERE "id" IN (${Prisma.join(order.items.map((item) => item.productId))}) FOR UPDATE`;
-      await tx.$queryRaw`SELECT "id" FROM "product_variants" WHERE "id" IN (${Prisma.join(order.items.map((item) => item.variantId))}) FOR UPDATE`;
-      for (const item of order.items) {
-        await tx.productVariant.update({
-          where: { id: item.variantId },
-          data: { stock: { increment: item.quantity } },
-        });
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        });
-      }
-      for (const usage of order.couponUsages) {
-        await tx.coupon.updateMany({
-          where: { id: usage.couponId, usedCount: { gt: 0 } },
-          data: { usedCount: { decrement: 1 } },
-        });
-        await tx.couponUsage.delete({ where: { id: usage.id } });
-      }
-      const cancelled = await tx.order.update({
-        where: { id: order.id },
-        data: { status: OrderStatusEnum.CANCELLED },
-        include: ORDER_INCLUDE,
-      });
-      return OrderMapper.toDomain(cancelled as PrismaOrderWithRelations);
-    });
+    }
   }
 
   private async findPage(

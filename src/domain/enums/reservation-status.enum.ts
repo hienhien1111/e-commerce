@@ -1,0 +1,7 @@
+export enum ReservationStatusEnum {
+  PENDING = 'PENDING',
+  RESERVED = 'RESERVED',
+  FAILED = 'FAILED',
+  RELEASE_PENDING = 'RELEASE_PENDING',
+  RELEASED = 'RELEASED',
+}

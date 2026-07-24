@@ -1,8 +1,9 @@
-import { Inject, NotFoundException } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import type { OrderRepositoryPort } from '@/application/order/ports/order.repository.port';
 import { ORDER_REPOSITORY_PORT } from '@/application/order/ports/order.repository.port.token';
 import { GetAdminOrderQuery } from './get-admin-order.query';
+import { ApplicationError } from '@/application/shared/errors/application.error';
 
 @QueryHandler(GetAdminOrderQuery)
 export class GetAdminOrderHandler implements IQueryHandler<GetAdminOrderQuery> {
@@ -11,7 +12,13 @@ export class GetAdminOrderHandler implements IQueryHandler<GetAdminOrderQuery> {
   ) {}
   async execute(query: GetAdminOrderQuery) {
     const order = await this.orders.findById(query.orderId);
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) {
+      throw new ApplicationError(
+        'ORDER_NOT_FOUND',
+        'Order not found',
+        'NOT_FOUND',
+      );
+    }
     return order;
   }
 }

@@ -3,6 +3,7 @@ import { OrderItem } from '@/domain/entities/order-item';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
 import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
+import { ReservationStatusEnum } from '@/domain/enums/reservation-status.enum';
 import { OrderCancelledEvent } from '@/domain/events/order-cancelled.event';
 import { OrderPlacedEvent } from '@/domain/events/order-placed.event';
 
@@ -30,6 +31,10 @@ export type OrderProps = {
   total: number;
   paymentMethod: PaymentMethodEnum;
   paymentStatus: PaymentStatusEnum;
+  reservationStatus?: ReservationStatusEnum;
+  reservationExpiresAt?: Date | null;
+  cancellationReason?: string | null;
+  paidAt?: Date | null;
   shippingAddress: ShippingAddress;
   couponId: string | null;
   note: string | null;
@@ -67,6 +72,10 @@ export class Order extends BaseDomainModel<OrderProps> {
     emitPlaced = false,
   ) {
     super(props, id, createdAt, updatedAt);
+    this.props.reservationStatus ??= ReservationStatusEnum.RESERVED;
+    this.props.reservationExpiresAt ??= null;
+    this.props.cancellationReason ??= null;
+    this.props.paidAt ??= null;
     this._deletedAt = deletedAt ?? null;
     this.validate();
     if (emitPlaced) this.addDomainEvent(new OrderPlacedEvent(this));
@@ -126,6 +135,18 @@ export class Order extends BaseDomainModel<OrderProps> {
   get paymentMethod(): PaymentMethodEnum {
     return this.props.paymentMethod;
   }
+  get reservationStatus(): ReservationStatusEnum {
+    return this.props.reservationStatus!;
+  }
+  get reservationExpiresAt(): Date | null {
+    return this.props.reservationExpiresAt!;
+  }
+  get cancellationReason(): string | null {
+    return this.props.cancellationReason!;
+  }
+  get paidAt(): Date | null {
+    return this.props.paidAt!;
+  }
   get shippingAddress(): ShippingAddress {
     return this.props.shippingAddress;
   }
@@ -146,7 +167,12 @@ export class Order extends BaseDomainModel<OrderProps> {
   }
 
   canCancel(allowProcessing: boolean): boolean {
-    if (this.paymentStatus === PaymentStatusEnum.PAID) return false;
+    if (
+      this.paymentStatus !== PaymentStatusEnum.PENDING &&
+      this.paymentStatus !== PaymentStatusEnum.FAILED
+    ) {
+      return false;
+    }
     return (
       this.status === OrderStatusEnum.PENDING ||
       this.status === OrderStatusEnum.CONFIRMED ||
@@ -159,6 +185,15 @@ export class Order extends BaseDomainModel<OrderProps> {
       throw new Error(`Cannot transition order from ${this.status} to ${next}`);
     }
     this.props.status = next;
+    if (
+      next === OrderStatusEnum.SHIPPED &&
+      this.paymentMethod === PaymentMethodEnum.COD &&
+      (this.paymentStatus === PaymentStatusEnum.PENDING ||
+        this.paymentStatus === PaymentStatusEnum.FAILED)
+    ) {
+      this.props.paymentStatus = PaymentStatusEnum.PAID;
+      this.props.paidAt = new Date();
+    }
     this.touch();
   }
 
@@ -175,9 +210,87 @@ export class Order extends BaseDomainModel<OrderProps> {
 
   /** Records settlement without changing a fulfilled or cancelled status. */
   markPaidFromPayment(): boolean {
-    if (this.paymentStatus === PaymentStatusEnum.PAID) return false;
+    if (
+      this.paymentStatus !== PaymentStatusEnum.PENDING &&
+      this.paymentStatus !== PaymentStatusEnum.FAILED
+    ) {
+      return false;
+    }
     this.props.paymentStatus = PaymentStatusEnum.PAID;
+    this.props.paidAt = new Date();
     if (!this.confirmFromPayment()) this.touch();
+    return true;
+  }
+
+  markReserved(): boolean {
+    if (this.reservationStatus === ReservationStatusEnum.RESERVED) return false;
+    if (
+      this.reservationStatus !== ReservationStatusEnum.PENDING ||
+      this.status === OrderStatusEnum.CANCELLED
+    ) {
+      return false;
+    }
+    this.props.reservationStatus = ReservationStatusEnum.RESERVED;
+    this.touch();
+    return true;
+  }
+
+  failReservation(reason: string): boolean {
+    if (this.reservationStatus !== ReservationStatusEnum.PENDING) return false;
+    this.props.reservationStatus = ReservationStatusEnum.FAILED;
+    this.props.status = OrderStatusEnum.CANCELLED;
+    this.props.cancellationReason = reason;
+    this.touch();
+    return true;
+  }
+
+  requestRelease(reason: string): boolean {
+    if (
+      this.reservationStatus === ReservationStatusEnum.RELEASED ||
+      this.reservationStatus === ReservationStatusEnum.RELEASE_PENDING
+    ) {
+      return false;
+    }
+    this.props.reservationStatus =
+      this.reservationStatus === ReservationStatusEnum.PENDING
+        ? ReservationStatusEnum.RELEASED
+        : ReservationStatusEnum.RELEASE_PENDING;
+    this.props.cancellationReason = reason;
+    this.touch();
+    return true;
+  }
+
+  completeRelease(): boolean {
+    if (this.reservationStatus === ReservationStatusEnum.RELEASED) return false;
+    if (
+      this.reservationStatus !== ReservationStatusEnum.RELEASE_PENDING &&
+      this.reservationStatus !== ReservationStatusEnum.FAILED
+    ) {
+      return false;
+    }
+    this.props.reservationStatus = ReservationStatusEnum.RELEASED;
+    this.touch();
+    return true;
+  }
+
+  markRefundPending(): boolean {
+    if (this.paymentStatus === PaymentStatusEnum.REFUND_PENDING) return false;
+    this.props.paymentStatus = PaymentStatusEnum.REFUND_PENDING;
+    this.touch();
+    return true;
+  }
+
+  markRefunded(): boolean {
+    if (this.paymentStatus === PaymentStatusEnum.REFUNDED) return false;
+    this.props.paymentStatus = PaymentStatusEnum.REFUNDED;
+    this.touch();
+    return true;
+  }
+
+  markRefundFailed(): boolean {
+    if (this.paymentStatus === PaymentStatusEnum.REFUND_FAILED) return false;
+    this.props.paymentStatus = PaymentStatusEnum.REFUND_FAILED;
+    this.touch();
     return true;
   }
 
@@ -185,6 +298,7 @@ export class Order extends BaseDomainModel<OrderProps> {
     if (!this.canCancel(allowProcessing))
       throw new Error('Order cannot be cancelled');
     this.props.status = OrderStatusEnum.CANCELLED;
+    this.requestRelease('CANCELLED');
     this.touch();
     this.addDomainEvent(new OrderCancelledEvent(this));
   }
@@ -199,6 +313,10 @@ export class Order extends BaseDomainModel<OrderProps> {
       total: this.total,
       paymentMethod: this.paymentMethod,
       paymentStatus: this.paymentStatus,
+      reservationStatus: this.reservationStatus,
+      reservationExpiresAt: this.reservationExpiresAt,
+      cancellationReason: this.cancellationReason,
+      paidAt: this.paidAt,
       shippingAddress: this.shippingAddress,
       couponId: this.couponId,
       note: this.note,

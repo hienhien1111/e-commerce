@@ -31,6 +31,26 @@ export type MomoGatewaySession = {
   deeplink: string | null;
 };
 
+export type MomoTransactionQueryResult = {
+  resultCode: number;
+  message: string;
+  refundedAmount: number;
+};
+
+export type MomoRefundInput = {
+  providerRefundOrderId: string;
+  requestId: string;
+  amount: number;
+  providerTransId: string;
+  description: string;
+};
+
+export type MomoRefundResult = {
+  resultCode: number;
+  message: string;
+  refundTransId: string | null;
+};
+
 export type MomoWebhookPayload = {
   partnerCode: string;
   orderId: string;
@@ -51,4 +71,9 @@ export interface PaymentGatewayPort {
   isConfigured(): boolean;
   initiate(input: MomoInitiationInput): Promise<MomoGatewaySession>;
   verifyWebhook(payload: MomoWebhookPayload): boolean;
+  queryTransaction(input: {
+    providerOrderId: string;
+    requestId: string;
+  }): Promise<MomoTransactionQueryResult>;
+  refund(input: MomoRefundInput): Promise<MomoRefundResult>;
 }

@@ -27,8 +27,10 @@ export class RedisHealthIndicator
   async pingCheck(key: string): Promise<HealthIndicatorResult> {
     const client = this.getClient();
     if (!client) {
-      // Redis is opt-in. If not configured, report healthy.
-      return this.getStatus(key, true, { configured: false });
+      throw new HealthCheckError(
+        `${key} is not configured`,
+        this.getStatus(key, false, { configured: false }),
+      );
     }
     try {
       const pong = await client.ping();

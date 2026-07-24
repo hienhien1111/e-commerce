@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import {
   PrometheusModule,
   makeCounterProvider,
+  makeGaugeProvider,
   makeHistogramProvider,
 } from '@willsoto/nestjs-prometheus';
 
@@ -28,6 +29,40 @@ const loginAttemptsProvider = makeCounterProvider({
   labelNames: ['result'],
 });
 
+const commerceOutboxLagProvider = makeGaugeProvider({
+  name: 'commerce_outbox_lag_seconds',
+  help: 'Age in seconds of the oldest publishable commerce outbox message',
+});
+
+const commerceQueueDepthProvider = makeGaugeProvider({
+  name: 'commerce_queue_depth',
+  help: 'BullMQ commerce jobs waiting, active, or delayed',
+});
+
+const commerceRetryProvider = makeCounterProvider({
+  name: 'commerce_event_retries_total',
+  help: 'Commerce outbox processing retries',
+  labelNames: ['event_type'],
+});
+
+const commerceDeadLetterProvider = makeCounterProvider({
+  name: 'commerce_dead_letters_total',
+  help: 'Commerce events that exhausted automatic retries',
+  labelNames: ['event_type'],
+});
+
+const commerceExpiredOrderProvider = makeCounterProvider({
+  name: 'commerce_expired_orders_total',
+  help: 'MoMo orders expired by the reservation scanner',
+});
+
+const commerceRefundProvider = makeCounterProvider({
+  name: 'commerce_refund_operations_total',
+  help: 'Refund workflow outcomes',
+  labelNames: ['status'],
+});
+
+@Global()
 @Module({
   imports: [
     PrometheusModule.register({
@@ -38,7 +73,25 @@ const loginAttemptsProvider = makeCounterProvider({
       path: '/metrics',
     }),
   ],
-  providers: [httpRequestDurationProvider, loginAttemptsProvider],
-  exports: [httpRequestDurationProvider, loginAttemptsProvider],
+  providers: [
+    httpRequestDurationProvider,
+    loginAttemptsProvider,
+    commerceOutboxLagProvider,
+    commerceQueueDepthProvider,
+    commerceRetryProvider,
+    commerceDeadLetterProvider,
+    commerceExpiredOrderProvider,
+    commerceRefundProvider,
+  ],
+  exports: [
+    httpRequestDurationProvider,
+    loginAttemptsProvider,
+    commerceOutboxLagProvider,
+    commerceQueueDepthProvider,
+    commerceRetryProvider,
+    commerceDeadLetterProvider,
+    commerceExpiredOrderProvider,
+    commerceRefundProvider,
+  ],
 })
 export class MetricsModule {}
