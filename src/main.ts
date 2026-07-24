@@ -19,6 +19,7 @@ import { AllConfigType } from './config/config.type';
 import { validateEnv } from './config/env.schema';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
 import { SerializeToJSONInterceptor } from './utils/serialize-to-json.interceptor';
+import { ApplicationErrorFilter } from './presentation/http/filters/application-error.filter';
 
 async function bootstrap() {
   validateEnv();
@@ -51,6 +52,7 @@ async function bootstrap() {
     type: VersioningType.URI,
   });
   app.useGlobalPipes(new ValidationPipe(validationOptions));
+  app.useGlobalFilters(new ApplicationErrorFilter());
   app.useGlobalInterceptors(
     new ResolvePromisesInterceptor(),
     new ClassSerializerInterceptor(app.get(Reflector)),

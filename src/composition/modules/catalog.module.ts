@@ -28,6 +28,7 @@ import { GetCategoriesHandler } from '@/application/catalog/queries/get-categori
 import { GetProductHandler } from '@/application/catalog/queries/get-product';
 import { GetProductsHandler } from '@/application/catalog/queries/get-products';
 import { GetAdminProductsHandler } from '@/application/catalog/queries/get-admin-products';
+import { GetAdminProductHandler } from '@/application/catalog/queries/get-admin-product';
 import { GetAdminCategoriesHandler } from '@/application/catalog/queries/get-admin-categories';
 import { AdminCatalogController } from '@/presentation/http/controllers/admin-catalog.controller';
 
@@ -51,6 +52,7 @@ const QueryHandlers = [
   GetProductHandler,
   GetProductsHandler,
   GetAdminProductsHandler,
+  GetAdminProductHandler,
   GetAdminCategoriesHandler,
 ];
 
