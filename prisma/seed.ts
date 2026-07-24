@@ -170,6 +170,9 @@ async function seedDevelopmentCatalog() {
           sku: null,
           categoryId: category.id,
           isActive: true,
+          // The deferred v2 constraint only permits ACTIVE once a sellable
+          // variant exists. The default variant is created just below.
+          status: 'DRAFT',
         },
         update: {
           name: `${categories[categoryIndex][0]} mẫu ${index}`,
@@ -178,6 +181,7 @@ async function seedDevelopmentCatalog() {
           stock: 20,
           categoryId: category.id,
           isActive: true,
+          status: 'DRAFT',
           deletedAt: null,
         },
       });
@@ -193,6 +197,9 @@ async function seedDevelopmentCatalog() {
             comparePrice,
             stock: 20,
             isActive: true,
+            status: 'ACTIVE',
+            combinationKey: 'DEFAULT',
+            currency: 'VND',
             deletedAt: null,
           },
         });
@@ -206,9 +213,16 @@ async function seedDevelopmentCatalog() {
             comparePrice,
             stock: 20,
             isActive: true,
+            status: 'ACTIVE',
+            combinationKey: 'DEFAULT',
+            currency: 'VND',
           },
         });
       }
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { status: 'ACTIVE', publishedAt: new Date() },
+      });
       const publicId = `seed/${slug}`;
       const image = await prisma.productImage.findFirst({
         where: { productId: product.id, publicId },

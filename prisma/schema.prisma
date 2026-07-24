@@ -67,34 +67,62 @@ enum DiscountType {
   FIXED_AMOUNT
 }
 
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProductVariantStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum InventoryReservationStatus {
+  RESERVED
+  RELEASED
+  FULFILLED
+  EXPIRED
+}
+
+enum InventoryMovementType {
+  OPENING_BALANCE
+  ADJUSTMENT
+  RESERVATION
+  RELEASE
+  FULFILLMENT
+  RETURN
+}
+
 // ============================================================
 // Identity Models
 // ============================================================
 
 model User {
-  id              String    @id @db.Uuid
-  email           String?   @unique
-  password        String?
-  state           String    @default("active")
-  provider        String    @default("email")
-  socialId        String?   @map("social_id")
-  firstName       String?   @map("first_name")
-  lastName        String?   @map("last_name")
-  phone           String?
-  avatarUrl       String?   @map("avatar_url")
-  avatarPublicId  String?   @map("avatar_public_id")
-  verifiedAt      DateTime? @map("verified_at") @db.Timestamptz
-  firstLoginAt    DateTime? @map("first_login_at") @db.Timestamptz
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  id             String    @id @db.Uuid
+  email          String?   @unique
+  password       String?
+  state          String    @default("active")
+  provider       String    @default("email")
+  socialId       String?   @map("social_id")
+  firstName      String?   @map("first_name")
+  lastName       String?   @map("last_name")
+  phone          String?
+  avatarUrl      String?   @map("avatar_url")
+  avatarPublicId String?   @map("avatar_public_id")
+  verifiedAt     DateTime? @map("verified_at") @db.Timestamptz
+  firstLoginAt   DateTime? @map("first_login_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
 
-  roles       UserRole[]
-  sessions    Session[]
-  credentials WebAuthnCredential[]
-  addresses   UserAddress[]
-  cart        Cart?
-  orders      Order[]
+  roles        UserRole[]
+  sessions     Session[]
+  credentials  WebAuthnCredential[]
+  addresses    UserAddress[]
+  cart         Cart?
+  orders       Order[]
   couponUsages CouponUsage[]
 
   @@index([socialId])
@@ -211,18 +239,18 @@ model WebAuthnCredential {
 // ============================================================
 
 model Category {
-  id          String    @id @db.Uuid
-  name        String
-  slug        String    @unique
-  description String?
-  imageUrl    String?   @map("image_url")
-  imagePublicId String? @map("image_public_id")
-  parentId    String?   @map("parent_id") @db.Uuid
-  sortOrder   Int       @default(0) @map("sort_order")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  id            String    @id @db.Uuid
+  name          String
+  slug          String    @unique
+  description   String?
+  imageUrl      String?   @map("image_url")
+  imagePublicId String?   @map("image_public_id")
+  parentId      String?   @map("parent_id") @db.Uuid
+  sortOrder     Int       @default(0) @map("sort_order")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
 
   parent   Category?  @relation("CategoryChildren", fields: [parentId], references: [id])
   children Category[] @relation("CategoryChildren")
@@ -234,29 +262,35 @@ model Category {
 }
 
 model Product {
-  id           String    @id @db.Uuid
+  id           String        @id @db.Uuid
   name         String
-  slug         String    @unique
-  description  String?   @db.Text
-  price        Decimal   @db.Decimal(12, 0)
-  comparePrice Decimal?  @map("compare_price") @db.Decimal(12, 0)
-  stock        Int       @default(0)
-  sku          String?   @unique
-  categoryId   String?   @map("category_id") @db.Uuid
-  isActive     Boolean   @default(true) @map("is_active")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+  slug         String        @unique
+  description  String?       @db.Text
+  price        Decimal       @db.Decimal(12, 0)
+  comparePrice Decimal?      @map("compare_price") @db.Decimal(12, 0)
+  stock        Int           @default(0)
+  sku          String?       @unique
+  categoryId   String?       @map("category_id") @db.Uuid
+  isActive     Boolean       @default(true) @map("is_active")
+  /// V2 catalog lifecycle. Legacy isActive remains during the online migration.
+  status       ProductStatus @default(ACTIVE)
+  publishedAt  DateTime?     @map("published_at") @db.Timestamptz
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz
 
-  category   Category?      @relation(fields: [categoryId], references: [id])
-  images     ProductImage[]
-  variants   ProductVariant[]
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  category            Category?                   @relation(fields: [categoryId], references: [id])
+  images              ProductImage[]
+  variants            ProductVariant[]
+  cartItems           CartItem[]
+  orderItems          OrderItem[]
+  options             ProductOption[]
+  media               ProductMedia[]
+  catalogProjection   ProductCatalogProjection?
+  variantOptionValues ProductVariantOptionValue[]
+  variantMedia        ProductVariantMedia[]
 
-  @@index([slug])
   @@index([categoryId])
-  @@index([isActive])
   @@map("products")
 }
 
@@ -269,7 +303,7 @@ model ProductImage {
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product  Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
   variants ProductVariant[] @relation("ProductVariantImage")
 
   @@index([productId])
@@ -277,29 +311,234 @@ model ProductImage {
 }
 
 model ProductVariant {
-  id           String    @id @db.Uuid
-  productId    String    @map("product_id") @db.Uuid
+  id             String               @id @db.Uuid
+  productId      String               @map("product_id") @db.Uuid
   /// Null is the single hidden/default variant used by a simple product.
-  label        String?
-  sku          String
-  price        Decimal   @db.Decimal(12, 0)
-  comparePrice Decimal?  @map("compare_price") @db.Decimal(12, 0)
-  stock        Int       @default(0)
-  isActive     Boolean   @default(true) @map("is_active")
-  imageId      String?   @map("image_id") @db.Uuid
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+  label          String?
+  sku            String
+  price          Decimal              @db.Decimal(12, 0)
+  comparePrice   Decimal?             @map("compare_price") @db.Decimal(12, 0)
+  stock          Int                  @default(0)
+  isActive       Boolean              @default(true) @map("is_active")
+  imageId        String?              @map("image_id") @db.Uuid
+  /// V2 values. Legacy label, stock and imageId remain while v1 is retired.
+  status         ProductVariantStatus @default(ACTIVE)
+  combinationKey String               @default("DEFAULT") @map("combination_key")
+  currency       String               @default("VND") @db.VarChar(3)
+  legacySku      String?              @map("legacy_sku")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?            @map("deleted_at") @db.Timestamptz
 
-  product    Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  image      ProductImage? @relation("ProductVariantImage", fields: [imageId], references: [id], onDelete: SetNull)
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  product               Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  image                 ProductImage?               @relation("ProductVariantImage", fields: [imageId], references: [id], onDelete: SetNull)
+  cartItems             CartItem[]
+  orderItems            OrderItem[]
+  optionValues          ProductVariantOptionValue[]
+  media                 ProductVariantMedia[]
+  inventoryBalances     InventoryBalance[]
+  inventoryReservations InventoryReservation[]
+  inventoryMovements    InventoryMovement[]
 
+  @@unique([id, productId])
+  @@unique([productId, combinationKey])
   @@index([productId])
   @@index([imageId])
-  @@index([productId, isActive])
+  @@index([productId, status, createdAt])
   @@map("product_variants")
+}
+
+/// Product-owned option definitions such as COLOR and SIZE.
+model ProductOption {
+  id        String   @id @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  code      String
+  name      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  product       Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values        ProductOptionValue[]
+  variantValues ProductVariantOptionValue[]
+
+  @@unique([id, productId])
+  @@unique([productId, code])
+  @@index([productId, position])
+  @@map("product_options")
+}
+
+model ProductOptionValue {
+  id              String   @id @db.Uuid
+  productOptionId String   @map("product_option_id") @db.Uuid
+  code            String
+  label           String
+  position        Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  option        ProductOption               @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
+  variantValues ProductVariantOptionValue[]
+
+  @@unique([id, productOptionId])
+  @@unique([productOptionId, code])
+  @@index([productOptionId, position])
+  @@map("product_option_values")
+}
+
+/// A row contains enough ownership columns for composite FK validation in SQL.
+model ProductVariantOptionValue {
+  variantId String @map("variant_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  optionId  String @map("option_id") @db.Uuid
+  valueId   String @map("value_id") @db.Uuid
+
+  variant ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  product Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  option  ProductOption      @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  value   ProductOptionValue @relation(fields: [valueId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, optionId])
+  @@index([valueId, variantId])
+  @@index([productId, optionId])
+  @@map("product_variant_option_values")
+}
+
+/// V2 media is owned by Product. ProductImage is retained only for the v1 bridge.
+model ProductMedia {
+  id        String   @id @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  url       String
+  publicId  String   @map("public_id")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  product      Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantMedia ProductVariantMedia[]
+
+  @@unique([id, productId])
+  @@index([productId, sortOrder, id])
+  @@map("product_media")
+}
+
+model ProductVariantMedia {
+  variantId String   @map("variant_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  mediaId   String   @map("media_id") @db.Uuid
+  isPrimary Boolean  @default(false) @map("is_primary")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  media   ProductMedia   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, mediaId])
+  @@index([productId, variantId])
+  @@map("product_variant_media")
+}
+
+model ProductCatalogProjection {
+  productId            String                   @id @map("product_id") @db.Uuid
+  categoryId           String?                  @map("category_id") @db.Uuid
+  status               ProductStatus
+  publishedAt          DateTime                 @map("published_at") @db.Timestamptz
+  priceMin             Decimal                  @map("price_min") @db.Decimal(12, 0)
+  priceMax             Decimal                  @map("price_max") @db.Decimal(12, 0)
+  /// Generated numrange; queried through the PostgreSQL GiST index.
+  priceRange           Unsupported("numrange")? @map("price_range")
+  availableQuantity    Int                      @default(0) @map("available_quantity")
+  sellableVariantCount Int                      @default(0) @map("sellable_variant_count")
+  primaryMediaUrl      String?                  @map("primary_media_url")
+  searchText           String                   @map("search_text") @db.Text
+  version              Int                      @default(1)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, publishedAt, productId])
+  @@index([status, publishedAt, productId])
+  @@map("product_catalog_projections")
+}
+
+model Warehouse {
+  id        String   @id @db.Uuid
+  code      String   @unique
+  name      String
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  balances     InventoryBalance[]
+  reservations InventoryReservation[]
+  movements    InventoryMovement[]
+
+  @@map("warehouses")
+}
+
+model InventoryBalance {
+  warehouseId String   @map("warehouse_id") @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  onHand      Int      @default(0) @map("on_hand")
+  reserved    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  warehouse Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@id([warehouseId, variantId])
+  @@index([variantId])
+  @@map("inventory_balances")
+}
+
+model InventoryReservation {
+  id             String                     @id @db.Uuid
+  orderId        String                     @map("order_id") @db.Uuid
+  warehouseId    String                     @map("warehouse_id") @db.Uuid
+  variantId      String                     @map("variant_id") @db.Uuid
+  quantity       Int
+  status         InventoryReservationStatus @default(RESERVED)
+  expiresAt      DateTime?                  @map("expires_at") @db.Timestamptz
+  idempotencyKey String                     @unique @map("idempotency_key")
+  releasedAt     DateTime?                  @map("released_at") @db.Timestamptz
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
+
+  order     Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  variant   ProductVariant      @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  movements InventoryMovement[]
+
+  @@unique([orderId, warehouseId, variantId])
+  @@index([status, expiresAt])
+  @@index([variantId, status])
+  @@map("inventory_reservations")
+}
+
+model InventoryMovement {
+  id            String                @id @db.Uuid
+  eventId       String                @unique @map("event_id")
+  warehouseId   String                @map("warehouse_id") @db.Uuid
+  variantId     String                @map("variant_id") @db.Uuid
+  reservationId String?               @map("reservation_id") @db.Uuid
+  orderId       String?               @map("order_id") @db.Uuid
+  type          InventoryMovementType
+  quantity      Int
+  note          String?
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  warehouse   Warehouse             @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  variant     ProductVariant        @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  reservation InventoryReservation? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  order       Order?                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([variantId, createdAt])
+  @@index([orderId])
+  @@map("inventory_movements")
 }
 
 // ============================================================
@@ -307,15 +546,15 @@ model ProductVariant {
 // ============================================================
 
 model Cart {
-  id        String     @id @db.Uuid
-  userId    String     @unique @map("user_id") @db.Uuid
-  couponId  String?    @map("coupon_id") @db.Uuid
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id        String   @id @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  couponId  String?  @map("coupon_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items         CartItem[]
-  appliedCoupon Coupon? @relation("CartAppliedCoupon", fields: [couponId], references: [id], onDelete: SetNull)
+  appliedCoupon Coupon?    @relation("CartAppliedCoupon", fields: [couponId], references: [id], onDelete: SetNull)
 
   @@index([couponId])
   @@map("carts")
@@ -330,8 +569,8 @@ model CartItem {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
   variant ProductVariant @relation(fields: [variantId], references: [id])
 
   @@unique([cartId, variantId])
@@ -360,11 +599,13 @@ model Order {
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz
 
-  user         User          @relation(fields: [userId], references: [id])
-  coupon       Coupon?       @relation(fields: [couponId], references: [id])
-  items        OrderItem[]
-  payment      Payment?
-  couponUsages CouponUsage[]
+  user                  User                   @relation(fields: [userId], references: [id])
+  coupon                Coupon?                @relation(fields: [couponId], references: [id])
+  items                 OrderItem[]
+  payment               Payment?
+  couponUsages          CouponUsage[]
+  inventoryReservations InventoryReservation[]
+  inventoryMovements    InventoryMovement[]
 
   @@index([userId])
   @@index([status])
@@ -383,8 +624,8 @@ model OrderItem {
   /// Snapshot of product data at time of order (name, sku, imageUrl)
   snapshot   Json
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
   variant ProductVariant @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
@@ -397,23 +638,23 @@ model OrderItem {
 // ============================================================
 
 model Payment {
-  id                  String        @id @db.Uuid
-  orderId             String        @unique @map("order_id") @db.Uuid
-  provider            String        @default("momo")
-  amount              Decimal       @db.Decimal(12, 0)
-  currency            String        @default("VND")
-  status              PaymentStatus @default(PENDING)
-  providerOrderId     String?       @map("provider_order_id")
-  providerTransId     String?       @map("provider_trans_id")
-  payUrl              String?       @map("pay_url")
-  qrCodeUrl           String?       @map("qr_code_url")
-  deeplink            String?
+  id              String        @id @db.Uuid
+  orderId         String        @unique @map("order_id") @db.Uuid
+  provider        String        @default("momo")
+  amount          Decimal       @db.Decimal(12, 0)
+  currency        String        @default("VND")
+  status          PaymentStatus @default(PENDING)
+  providerOrderId String?       @map("provider_order_id")
+  providerTransId String?       @map("provider_trans_id")
+  payUrl          String?       @map("pay_url")
+  qrCodeUrl       String?       @map("qr_code_url")
+  deeplink        String?
   /// Raw MoMo IPN body or response metadata
-  metadata            Json?
-  expiresAt           DateTime?     @map("expires_at") @db.Timestamptz
-  paidAt              DateTime?     @map("paid_at") @db.Timestamptz
-  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  metadata        Json?
+  expiresAt       DateTime?     @map("expires_at") @db.Timestamptz
+  paidAt          DateTime?     @map("paid_at") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -441,9 +682,9 @@ model Coupon {
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz
 
-  usages CouponUsage[]
-  orders Order[]
-  appliedCarts Cart[] @relation("CartAppliedCoupon")
+  usages       CouponUsage[]
+  orders       Order[]
+  appliedCarts Cart[]        @relation("CartAppliedCoupon")
 
   @@index([code])
   @@index([isActive])
