@@ -3,6 +3,7 @@ import { OrderItemFactory } from '@/domain/factories/order-item.factory';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
 import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
+import { ReservationStatusEnum } from '@/domain/enums/reservation-status.enum';
 
 const createOrder = () =>
   OrderFactory.create({
@@ -82,5 +83,31 @@ describe('Order', () => {
     expect(order.markPaidFromPayment()).toBe(true);
     expect(order.status).toBe(OrderStatusEnum.CANCELLED);
     expect(order.paymentStatus).toBe(PaymentStatusEnum.PAID);
+    expect(order.paidAt).toBeInstanceOf(Date);
+  });
+
+  it('marks COD paid exactly when it is shipped', () => {
+    const order = createOrder();
+    order.transitionTo(OrderStatusEnum.CONFIRMED);
+    order.transitionTo(OrderStatusEnum.PROCESSING);
+    expect(order.paymentStatus).toBe(PaymentStatusEnum.PENDING);
+    expect(order.paidAt).toBeNull();
+    order.transitionTo(OrderStatusEnum.SHIPPED);
+    const paidAt = order.paidAt;
+    expect(order.paymentStatus).toBe(PaymentStatusEnum.PAID);
+    expect(paidAt).toBeInstanceOf(Date);
+    order.transitionTo(OrderStatusEnum.DELIVERED);
+    expect(order.paidAt).toBe(paidAt);
+  });
+
+  it('keeps reservation release operations idempotent', () => {
+    const order = createOrder();
+    expect(order.reservationStatus).toBe(ReservationStatusEnum.RESERVED);
+    expect(order.requestRelease('PAYMENT_EXPIRED')).toBe(true);
+    expect(order.requestRelease('DUPLICATE')).toBe(false);
+    expect(order.reservationStatus).toBe(ReservationStatusEnum.RELEASE_PENDING);
+    expect(order.completeRelease()).toBe(true);
+    expect(order.completeRelease()).toBe(false);
+    expect(order.reservationStatus).toBe(ReservationStatusEnum.RELEASED);
   });
 });

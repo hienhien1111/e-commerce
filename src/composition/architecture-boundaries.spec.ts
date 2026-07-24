@@ -21,7 +21,7 @@ const importsOf = (file: string): string[] => {
 };
 
 describe('architecture dependency boundaries', () => {
-  it('keeps domain independent from frameworks and outer layers', () => {
+  it('keeps domain independent from framework and outer layers', () => {
     const forbidden = [
       '@nestjs/',
       '@prisma/',
@@ -73,6 +73,17 @@ describe('architecture dependency boundaries', () => {
             dependency.includes('.repository.port'),
         )
         .map((dependency) => `${relative(sourceRoot, file)} -> ${dependency}`),
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it('keeps commerce application errors independent from HTTP exceptions', () => {
+    const httpException =
+      /\b(?:BadRequestException|ConflictException|ForbiddenException|HttpException|NotFoundException|UnauthorizedException|UnprocessableEntityException)\b/;
+    const violations = ['cart', 'order', 'payment'].flatMap((area) =>
+      filesBelow(join(sourceRoot, 'application', area))
+        .filter((file) => httpException.test(readFileSync(file, 'utf8')))
+        .map((file) => relative(sourceRoot, file)),
     );
     expect(violations).toEqual([]);
   });
