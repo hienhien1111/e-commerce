@@ -7,6 +7,7 @@ import {
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import type { ProductRepositoryPort } from '@/application/catalog/ports/product.repository.port';
 import { PRODUCT_REPOSITORY_PORT } from '@/application/catalog/ports/product.repository.port.token';
+import { ApplicationError } from '@/application/shared/errors/application.error';
 import { UpdateProductVariantCommand } from './update-product-variant.command';
 
 @CommandHandler(UpdateProductVariantCommand)
@@ -58,9 +59,11 @@ export class UpdateProductVariantHandler
       throw new UnprocessableEntityException('Variant SKU is required');
     }
     if (sku && sku !== variant.sku) {
-      const existing = await this.products.findBySku(sku);
-      if (existing)
-        throw new ConflictException('Product variant SKU already exists');
+      throw new ApplicationError(
+        'SKU_IMMUTABLE',
+        'Variant SKU is immutable after creation',
+        'UNPROCESSABLE',
+      );
     }
     const image =
       command.payload.imageId === undefined

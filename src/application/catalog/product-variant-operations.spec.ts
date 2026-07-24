@@ -168,11 +168,11 @@ describe('Product variant application operations', () => {
     ).execute({
       productId: target.id,
       variantId: 'variant-default',
-      payload: { label: 'Đen - M', sku: 'tshirt-black-m', stock: 5 },
+      payload: { label: 'Đen - M', stock: 5 },
     });
     expect(updated).toMatchObject({
       label: 'Đen - M',
-      sku: 'TSHIRT-BLACK-M',
+      sku: 'TSHIRT-DEFAULT',
       stock: 5,
     });
 
@@ -182,5 +182,24 @@ describe('Product variant application operations', () => {
         variantId: 'variant-default',
       }),
     ).rejects.toThrow('Product requires at least one variant');
+  });
+
+  it('keeps a created SKU immutable', async () => {
+    const target = product();
+    const repository = {
+      findById: jest.fn().mockResolvedValue(target),
+      findBySku: jest.fn(),
+      saveVariant: jest.fn(),
+      softDeleteVariant: jest.fn(),
+    };
+
+    await expect(
+      new UpdateProductVariantHandler(repository as never).execute({
+        productId: target.id,
+        variantId: 'variant-default',
+        payload: { sku: 'TSHIRT-REASSIGNED' },
+      }),
+    ).rejects.toMatchObject({ code: 'SKU_IMMUTABLE' });
+    expect(repository.findBySku).not.toHaveBeenCalled();
   });
 });
