@@ -135,8 +135,11 @@ export class Payment extends BaseDomainModel<PaymentProps> {
     attempt: number;
     now?: Date;
   }): void {
-    if (this.status === PaymentStatusEnum.PAID) {
-      throw new Error('Paid payment cannot be retried');
+    if (
+      this.status !== PaymentStatusEnum.PENDING &&
+      this.status !== PaymentStatusEnum.FAILED
+    ) {
+      throw new Error('Settled payment cannot be retried');
     }
     this.props.status = PaymentStatusEnum.PENDING;
     this.props.providerOrderId = input.providerOrderId;
@@ -204,10 +207,48 @@ export class Payment extends BaseDomainModel<PaymentProps> {
   }
 
   complete(providerTransId: string, paidAt = new Date()): boolean {
-    if (this.status === PaymentStatusEnum.PAID) return false;
+    if (
+      this.status !== PaymentStatusEnum.PENDING &&
+      this.status !== PaymentStatusEnum.FAILED
+    ) {
+      return false;
+    }
     this.props.status = PaymentStatusEnum.PAID;
     this.props.providerTransId = providerTransId;
     this.props.paidAt = paidAt;
+    this.touch();
+    return true;
+  }
+
+  requestRefund(): boolean {
+    if (this.status === PaymentStatusEnum.REFUND_PENDING) return false;
+    if (this.status !== PaymentStatusEnum.PAID) {
+      throw new Error('Only paid payments can be refunded');
+    }
+    this.props.status = PaymentStatusEnum.REFUND_PENDING;
+    this.touch();
+    return true;
+  }
+
+  completeRefund(): boolean {
+    if (this.status === PaymentStatusEnum.REFUNDED) return false;
+    if (
+      this.status !== PaymentStatusEnum.REFUND_PENDING &&
+      this.status !== PaymentStatusEnum.REFUND_FAILED
+    ) {
+      throw new Error('Payment is not awaiting a refund');
+    }
+    this.props.status = PaymentStatusEnum.REFUNDED;
+    this.touch();
+    return true;
+  }
+
+  failRefund(): boolean {
+    if (this.status === PaymentStatusEnum.REFUND_FAILED) return false;
+    if (this.status !== PaymentStatusEnum.REFUND_PENDING) {
+      throw new Error('Payment is not awaiting a refund');
+    }
+    this.props.status = PaymentStatusEnum.REFUND_FAILED;
     this.touch();
     return true;
   }

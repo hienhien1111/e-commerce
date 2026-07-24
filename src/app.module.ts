@@ -20,8 +20,6 @@ import { IdentityModule } from './composition/modules/identity.module';
 import { AuthorizationModule } from './composition/modules/authorization.module';
 import { CatalogModule } from './composition/modules/catalog.module';
 import { CartModule } from './composition/modules/cart.module';
-import { DiscountModule } from './composition/modules/discount.module';
-import { OrderModule } from './composition/modules/order.module';
 import { PaymentModule } from './composition/modules/payment.module';
 import { AdminModule } from './composition/modules/admin.module';
 
@@ -62,9 +60,7 @@ import { AdminModule } from './composition/modules/admin.module';
     IdentityModule,
     AuthorizationModule,
     CatalogModule,
-    DiscountModule,
     CartModule,
-    OrderModule,
     PaymentModule,
     AdminModule,
   ],

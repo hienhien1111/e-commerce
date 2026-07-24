@@ -14,12 +14,41 @@ import {
 import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 
 export class ShippingAddressInputDto {
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(120) fullName!: string;
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(40) phone!: string;
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(300) addressLine!: string;
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(120) ward!: string;
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(120) district!: string;
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(120) city!: string;
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  fullName!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(40)
+  phone!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(300)
+  addressLine!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  ward!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  district!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  city!: string;
 }
 
 export class CreateOrderDto {
@@ -28,7 +57,10 @@ export class CreateOrderDto {
   @Type(() => ShippingAddressInputDto)
   shippingAddress!: ShippingAddressInputDto;
 
-  @ApiProperty({ enum: PaymentMethodEnum, default: PaymentMethodEnum.COD })
+  @ApiProperty({
+    enum: PaymentMethodEnum,
+    default: PaymentMethodEnum.COD,
+  })
   @IsOptional()
   @IsEnum(PaymentMethodEnum)
   paymentMethod: PaymentMethodEnum = PaymentMethodEnum.COD;

@@ -1,25 +1,19 @@
-import {
-  ForbiddenException,
-  Inject,
-  NotFoundException,
-  ServiceUnavailableException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CommandHandler, EventBus, ICommandHandler } from '@nestjs/cqrs';
-import type { PaymentRepositoryPort } from '@/application/payment/ports/payment.repository.port';
-import { PAYMENT_REPOSITORY_PORT } from '@/application/payment/ports/payment.repository.port.token';
-import type { PaymentGatewayPort } from '@/application/payment/ports/payment.gateway.port';
-import { PAYMENT_GATEWAY_PORT } from '@/application/payment/ports/payment.gateway.port.token';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import type { OrderRepositoryPort } from '@/application/order/ports/order.repository.port';
 import { ORDER_REPOSITORY_PORT } from '@/application/order/ports/order.repository.port.token';
+import type { PaymentGatewayPort } from '@/application/payment/ports/payment.gateway.port';
+import { PAYMENT_GATEWAY_PORT } from '@/application/payment/ports/payment.gateway.port.token';
+import type { PaymentInitiationPort } from '@/application/payment/ports/payment-initiation.port';
+import { PAYMENT_INITIATION_PORT } from '@/application/payment/ports/payment-initiation.port.token';
+import { ApplicationError } from '@/application/shared/errors/application.error';
 import type { AllConfigType } from '@/config/config.type';
 import { Payment } from '@/domain/entities/payment';
-import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
-import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
-import { PaymentInitiatedEvent } from '@/domain/events/payment-initiated.event';
-import { PaymentFailedEvent } from '@/domain/events/payment-failed.event';
+import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
+import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { ReservationStatusEnum } from '@/domain/enums/reservation-status.enum';
 import { InitiatePaymentCommand } from './initiate-payment.command';
 
 const MOMO_MIN_AMOUNT = 1_000;
@@ -48,56 +42,105 @@ export class InitiatePaymentHandler
   constructor(
     @Inject(ORDER_REPOSITORY_PORT)
     private readonly orders: OrderRepositoryPort,
-    @Inject(PAYMENT_REPOSITORY_PORT)
-    private readonly payments: PaymentRepositoryPort,
+    @Inject(PAYMENT_INITIATION_PORT)
+    private readonly payments: PaymentInitiationPort,
     @Inject(PAYMENT_GATEWAY_PORT)
     private readonly gateway: PaymentGatewayPort,
     private readonly config: ConfigService<AllConfigType>,
-    private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: InitiatePaymentCommand): Promise<Payment> {
     if (!this.gateway.isConfigured()) {
-      throw new ServiceUnavailableException('MoMo payment is not configured');
+      throw new ApplicationError(
+        'MOMO_NOT_CONFIGURED',
+        'MoMo payment is not configured',
+        'UNAVAILABLE',
+        true,
+      );
     }
     const order = await this.orders.findById(command.orderId);
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) {
+      throw new ApplicationError(
+        'ORDER_NOT_FOUND',
+        'Order not found',
+        'NOT_FOUND',
+      );
+    }
     if (order.userId !== command.userId) {
-      throw new ForbiddenException('You cannot pay for this order');
+      throw new ApplicationError(
+        'PAYMENT_FORBIDDEN',
+        'You cannot pay for this order',
+        'FORBIDDEN',
+      );
     }
     if (order.status === OrderStatusEnum.CANCELLED) {
-      throw new UnprocessableEntityException('Cancelled orders cannot be paid');
+      throw new ApplicationError(
+        'ORDER_CANCELLED',
+        'Cancelled orders cannot be paid',
+        'UNPROCESSABLE',
+      );
+    }
+    if (order.reservationStatus !== ReservationStatusEnum.RESERVED) {
+      throw new ApplicationError(
+        'ORDER_NOT_RESERVED',
+        order.reservationStatus === ReservationStatusEnum.PENDING
+          ? 'Đơn hàng đang giữ tồn kho. Vui lòng thử lại sau.'
+          : 'Đơn hàng không còn giữ được tồn kho.',
+        'UNPROCESSABLE',
+        order.reservationStatus === ReservationStatusEnum.PENDING,
+      );
     }
     if (order.paymentStatus === PaymentStatusEnum.PAID) {
-      throw new UnprocessableEntityException('Order is already paid');
+      throw new ApplicationError(
+        'ORDER_ALREADY_PAID',
+        'Order is already paid',
+        'UNPROCESSABLE',
+      );
     }
     if (order.paymentMethod !== PaymentMethodEnum.MOMO) {
-      throw new UnprocessableEntityException({
-        code: 'PAYMENT_METHOD_NOT_MOMO',
-        retryable: false,
-        message: 'Đơn hàng này được chọn thanh toán khi nhận hàng.',
-      });
+      throw new ApplicationError(
+        'PAYMENT_METHOD_NOT_MOMO',
+        'Đơn hàng này được chọn thanh toán khi nhận hàng.',
+        'UNPROCESSABLE',
+      );
     }
     if (order.total < MOMO_MIN_AMOUNT || order.total > MOMO_MAX_AMOUNT) {
-      throw new UnprocessableEntityException(
+      throw new ApplicationError(
+        'MOMO_AMOUNT_INVALID',
         `MoMo amount must be between ${MOMO_MIN_AMOUNT} and ${MOMO_MAX_AMOUNT} VND`,
+        'UNPROCESSABLE',
       );
     }
 
     const momo = this.config.getOrThrow('momo', { infer: true });
     const now = new Date();
+    if (order.reservationExpiresAt && order.reservationExpiresAt <= now) {
+      throw new ApplicationError(
+        'ORDER_RESERVATION_EXPIRED',
+        'Thời gian giữ hàng đã hết.',
+        'UNPROCESSABLE',
+      );
+    }
+    const gatewayExpiry = new Date(
+      now.getTime() + momo.paymentExpiryMinutes * 60_000,
+    );
     const reservation = await this.payments.reserveMomoInitiation({
       orderId: order.id,
       amount: order.total,
       now,
-      expiresAt: new Date(now.getTime() + momo.paymentExpiryMinutes * 60_000),
+      expiresAt:
+        order.reservationExpiresAt && order.reservationExpiresAt < gatewayExpiry
+          ? order.reservationExpiresAt
+          : gatewayExpiry,
     });
     if (reservation.payment.status === PaymentStatusEnum.PAID) {
-      throw new UnprocessableEntityException('Order is already paid');
+      throw new ApplicationError(
+        'ORDER_ALREADY_PAID',
+        'Order is already paid',
+        'UNPROCESSABLE',
+      );
     }
-    if (reservation.state !== 'INITIATE') {
-      return reservation.payment;
-    }
+    if (reservation.state !== 'INITIATE') return reservation.payment;
     const { payment, providerOrderId, requestId } = reservation;
 
     try {
@@ -138,20 +181,24 @@ export class InitiatePaymentHandler
         ipnUrl: momo.ipnUrl!,
       });
       if (session.resultCode !== 0 || !session.payUrl) {
-        const providerFailure = toMomoProviderFailure(
+        const failure = toMomoProviderFailure(
           session.resultCode,
           session.message,
         );
-        const failed = await this.payments.failMomoInitiation({
+        await this.payments.failMomoInitiation({
           paymentId: payment.id,
           requestId,
-          message: providerFailure.message,
+          message: failure.message,
           resultCode: session.resultCode,
         });
-        await this.eventBus.publish(new PaymentFailedEvent(failed));
-        throw new UnprocessableEntityException(providerFailure);
+        throw new ApplicationError(
+          failure.code,
+          failure.message,
+          'UNPROCESSABLE',
+          failure.retryable,
+        );
       }
-      const saved = await this.payments.completeMomoInitiation({
+      return this.payments.completeMomoInitiation({
         paymentId: payment.id,
         requestId,
         session: {
@@ -160,28 +207,19 @@ export class InitiatePaymentHandler
           deeplink: session.deeplink,
         },
       });
-      await this.eventBus.publish(new PaymentInitiatedEvent(saved));
-      return saved;
     } catch (error) {
-      if (error instanceof UnprocessableEntityException) throw error;
-      const failed = await this.payments.failMomoInitiation({
+      if (error instanceof ApplicationError) throw error;
+      await this.payments.failMomoInitiation({
         paymentId: payment.id,
         requestId,
         message: 'MoMo gateway request failed',
       });
-      await this.eventBus.publish(new PaymentFailedEvent(failed));
-      if (error instanceof ServiceUnavailableException) {
-        throw new ServiceUnavailableException({
-          code: 'MOMO_UNAVAILABLE',
-          retryable: true,
-          message: 'Không thể kết nối MoMo. Vui lòng thử lại.',
-        });
-      }
-      throw new ServiceUnavailableException({
-        code: 'MOMO_UNAVAILABLE',
-        retryable: true,
-        message: 'Không thể kết nối MoMo. Vui lòng thử lại.',
-      });
+      throw new ApplicationError(
+        'MOMO_UNAVAILABLE',
+        'Không thể kết nối MoMo. Vui lòng thử lại.',
+        'UNAVAILABLE',
+        true,
+      );
     }
   }
 }

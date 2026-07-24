@@ -60,9 +60,9 @@ async function bootstrap() {
   );
 
   const options = new DocumentBuilder()
-    .setTitle('Ecommerce Catalog API')
+    .setTitle('Ecommerce Commerce API')
     .setDescription(
-      'Catalog v2 is the canonical Product/Variant contract: options, product-owned media, immutable SKU, inventory ledger/reservations, and projection-backed storefront queries. API v1 remains available only as a temporary legacy bridge during cutover.',
+      'API v1 is the temporary legacy bridge. Catalog v2 is the canonical Product/Variant contract: options, product-owned media, immutable SKU, inventory ledger/reservations, and projection-backed storefront queries. Checkout uses a reservation saga: 201 when reserved, 202 while processing; clients poll GET /v1/orders/{id}.',
     )
     .setVersion('2.0.0')
     .addCookieAuth(

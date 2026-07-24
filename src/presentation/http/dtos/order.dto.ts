@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
 import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
+import { ReservationStatusEnum } from '@/domain/enums/reservation-status.enum';
 
 class ShippingAddressDto {
   @ApiProperty() fullName!: string;
@@ -45,6 +46,13 @@ export class OrderDto {
   @ApiProperty() total!: number;
   @ApiProperty({ enum: PaymentMethodEnum }) paymentMethod!: PaymentMethodEnum;
   @ApiProperty({ enum: PaymentStatusEnum }) paymentStatus!: PaymentStatusEnum;
+  @ApiProperty({ enum: ReservationStatusEnum })
+  reservationStatus!: ReservationStatusEnum;
+  @ApiPropertyOptional({ nullable: true })
+  reservationExpiresAt!: Date | null;
+  @ApiPropertyOptional({ nullable: true })
+  cancellationReason!: string | null;
+  @ApiPropertyOptional({ nullable: true }) paidAt!: Date | null;
   @ApiProperty({ type: ShippingAddressDto })
   shippingAddress!: ShippingAddressDto;
   @ApiPropertyOptional({ nullable: true }) couponId!: string | null;
