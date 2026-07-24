@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
-import { DiscountModule } from '@/application/discount/discount.module';
+import { DiscountModule } from '@/composition/modules/discount.module';
 import { CART_PRODUCT_LOOKUP_PORT } from '@/application/cart/ports/cart-product-lookup.port.token';
 import { CART_REPOSITORY_PORT } from '@/application/cart/ports/cart.repository.port.token';
 import { CartProductService } from '@/application/cart/services/cart-product.service';

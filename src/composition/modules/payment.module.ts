@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
-import { OrderModule } from '@/application/order/order.module';
+import { OrderModule } from '@/composition/modules/order.module';
 import { PrismaModule } from '@/infrastructure/persistence/prisma/prisma.module';
 import { PrismaPaymentRepository } from '@/infrastructure/persistence/repositories/prisma-payment.repository';
 import { MomoPaymentGateway } from '@/infrastructure/providers/momo-payment.gateway';

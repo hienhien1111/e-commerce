@@ -16,14 +16,14 @@ import { LoggerModule } from './infrastructure/logger/logger.module';
 import { MetricsModule } from './infrastructure/metrics/metrics.module';
 import { PrismaModule } from './infrastructure/persistence/prisma/prisma.module';
 import { HealthModule } from './health/health.module';
-import { IdentityModule } from './application/identity/identity.module';
-import { AuthorizationModule } from './application/authorization/authorization.module';
-import { CatalogModule } from './application/catalog/catalog.module';
-import { CartModule } from './application/cart/cart.module';
-import { DiscountModule } from './application/discount/discount.module';
-import { OrderModule } from './application/order/order.module';
-import { PaymentModule } from './application/payment/payment.module';
-import { AdminModule } from './application/admin/admin.module';
+import { IdentityModule } from './composition/modules/identity.module';
+import { AuthorizationModule } from './composition/modules/authorization.module';
+import { CatalogModule } from './composition/modules/catalog.module';
+import { CartModule } from './composition/modules/cart.module';
+import { DiscountModule } from './composition/modules/discount.module';
+import { OrderModule } from './composition/modules/order.module';
+import { PaymentModule } from './composition/modules/payment.module';
+import { AdminModule } from './composition/modules/admin.module';
 
 @Module({
   imports: [
