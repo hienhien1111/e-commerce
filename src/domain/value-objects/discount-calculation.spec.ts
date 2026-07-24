@@ -37,4 +37,10 @@ describe('DiscountCalculation', () => {
       ),
     ).toBe(30000);
   });
+
+  it('rejects an invalid subtotal', () => {
+    expect(() => DiscountCalculation.calculate(createCoupon(), -1)).toThrow(
+      'Subtotal must be a non-negative integer',
+    );
+  });
 });

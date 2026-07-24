@@ -34,4 +34,19 @@ describe('Coupon', () => {
       }),
     ).toThrow('Maximum discount is only valid for percentage coupons');
   });
+
+  it('enforces percentage, amount, and usage boundaries', () => {
+    expect(() => coupon({ discountValue: 101 })).toThrow(
+      'Percentage discount cannot exceed 100',
+    );
+    expect(() => coupon({ discountValue: 0 })).toThrow(
+      'Coupon discount value must be a positive integer',
+    );
+    expect(() => coupon({ minOrderAmount: -1 })).toThrow(
+      'Minimum order amount must be a non-negative integer',
+    );
+    expect(() => coupon({ maxUsage: 0 })).toThrow(
+      'Maximum usage must be a positive integer',
+    );
+  });
 });
