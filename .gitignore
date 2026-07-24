@@ -28,7 +28,6 @@ lerna-debug.log*
 *.sublime-workspace
 
 # IDE - VSCode
-.vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -36,8 +35,6 @@ lerna-debug.log*
 
 .data
 /files
-.env
-.env.*
 !.env.example
 !.env.*.example
 /ormconfig.json
@@ -72,3 +69,4 @@ lerna-debug.log*
 
 /docs
 /.github
+config.bat
