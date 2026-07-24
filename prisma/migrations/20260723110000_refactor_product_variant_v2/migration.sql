@@ -338,35 +338,17 @@ CREATE TABLE "inventory_movements" (
 CREATE INDEX "inventory_movements_variant_id_created_at_idx" ON "inventory_movements" ("variant_id", "created_at");
 CREATE INDEX "inventory_movements_order_id_idx" ON "inventory_movements" ("order_id");
 
--- Existing stock represents available stock because the legacy reservation
--- worker decremented it. Reconstruct on_hand by adding still-reserved lines.
+-- At this point the reservation saga has not yet been deployed. Legacy stock
+-- is therefore imported as immediately available stock. The following saga
+-- migration backfills reservations for orders that become RESERVED.
 INSERT INTO "inventory_balances" ("warehouse_id", "variant_id", "on_hand", "reserved")
 SELECT
   '00000000-0000-7000-8000-000000000001'::uuid,
   pv."id",
-  pv."stock" + COALESCE(reserved.quantity, 0),
-  COALESCE(reserved.quantity, 0)
+  pv."stock",
+  0
 FROM "product_variants" pv
-LEFT JOIN (
-  SELECT oi."variant_id", SUM(oi."quantity")::integer AS quantity
-  FROM "order_items" oi
-  JOIN "orders" o ON o."id" = oi."order_id"
-  WHERE o."reservation_status" = 'RESERVED'
-    AND o."status" <> 'CANCELLED'
-  GROUP BY oi."variant_id"
-) reserved ON reserved."variant_id" = pv."id";
-
-INSERT INTO "inventory_reservations" (
-  "id", "order_id", "warehouse_id", "variant_id", "quantity", "status", "expires_at", "idempotency_key", "created_at", "updated_at"
-)
-SELECT gen_random_uuid(), oi."order_id", '00000000-0000-7000-8000-000000000001'::uuid,
-  oi."variant_id", SUM(oi."quantity")::integer, 'RESERVED', o."reservation_expires_at",
-  'legacy-reservation:' || oi."order_id"::text || ':' || oi."variant_id"::text,
-  o."created_at", o."updated_at"
-FROM "order_items" oi
-JOIN "orders" o ON o."id" = oi."order_id"
-WHERE o."reservation_status" = 'RESERVED' AND o."status" <> 'CANCELLED'
-GROUP BY oi."order_id", oi."variant_id", o."reservation_expires_at", o."created_at", o."updated_at";
+WHERE pv."deleted_at" IS NULL;
 
 INSERT INTO "inventory_movements" ("id", "event_id", "warehouse_id", "variant_id", "type", "quantity", "note")
 SELECT gen_random_uuid(), 'migration-opening:' || ib."variant_id"::text,
