@@ -31,6 +31,17 @@ import { GetAdminProductsHandler } from '@/application/catalog/queries/get-admin
 import { GetAdminProductHandler } from '@/application/catalog/queries/get-admin-product';
 import { GetAdminCategoriesHandler } from '@/application/catalog/queries/get-admin-categories';
 import { AdminCatalogController } from '@/presentation/http/controllers/admin-catalog.controller';
+import {
+  AdminCatalogV2Controller,
+  CatalogV2Controller,
+} from '@/presentation/http/controllers/catalog-v2.controller';
+import { PrismaCatalogV2Repository } from '@/infrastructure/persistence/repositories/prisma-catalog-v2.repository';
+import { CATALOG_V2_REPOSITORY_PORT } from '@/application/catalog-v2/ports/catalog-v2.repository.port.token';
+import { CreateCatalogProductV2Handler } from '@/application/catalog-v2/commands/create-catalog-product-v2.handler';
+import { UpdateCatalogProductV2Handler } from '@/application/catalog-v2/commands/update-catalog-product-v2.handler';
+import { AdjustInventoryHandler } from '@/application/catalog-v2/commands/adjust-inventory.handler';
+import { GetCatalogProductV2Handler } from '@/application/catalog-v2/queries/get-catalog-product-v2.handler';
+import { GetCatalogProductsV2Handler } from '@/application/catalog-v2/queries/get-catalog-products-v2.handler';
 
 const CommandHandlers = [
   CreateCategoryHandler,
@@ -44,6 +55,9 @@ const CommandHandlers = [
   CreateProductVariantHandler,
   UpdateProductVariantHandler,
   DeleteProductVariantHandler,
+  CreateCatalogProductV2Handler,
+  UpdateCatalogProductV2Handler,
+  AdjustInventoryHandler,
 ];
 
 const QueryHandlers = [
@@ -54,6 +68,8 @@ const QueryHandlers = [
   GetAdminProductsHandler,
   GetAdminProductHandler,
   GetAdminCategoriesHandler,
+  GetCatalogProductV2Handler,
+  GetCatalogProductsV2Handler,
 ];
 
 @Module({
@@ -62,11 +78,18 @@ const QueryHandlers = [
     PrismaModule,
     ConfigModule.forFeature(cloudinaryConfig),
   ],
-  controllers: [CategoryController, ProductController, AdminCatalogController],
+  controllers: [
+    CategoryController,
+    ProductController,
+    AdminCatalogController,
+    CatalogV2Controller,
+    AdminCatalogV2Controller,
+  ],
   providers: [
     CloudinaryProvider,
     PrismaCategoryRepository,
     PrismaProductRepository,
+    PrismaCatalogV2Repository,
     CategoryHierarchyService,
     ...CommandHandlers,
     ...QueryHandlers,
@@ -75,6 +98,10 @@ const QueryHandlers = [
       useExisting: PrismaCategoryRepository,
     },
     { provide: PRODUCT_REPOSITORY_PORT, useExisting: PrismaProductRepository },
+    {
+      provide: CATALOG_V2_REPOSITORY_PORT,
+      useExisting: PrismaCatalogV2Repository,
+    },
     { provide: FILE_STORAGE_PORT, useExisting: CloudinaryProvider },
   ],
 })

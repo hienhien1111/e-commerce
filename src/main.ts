@@ -60,10 +60,16 @@ async function bootstrap() {
   );
 
   const options = new DocumentBuilder()
-    .setTitle('API')
-    .setDescription('API docs')
-    .setVersion('1.0')
-    .addCookieAuth('access_token')
+    .setTitle('Ecommerce Catalog API')
+    .setDescription(
+      'Catalog v2 is the canonical Product/Variant contract: options, product-owned media, immutable SKU, inventory ledger/reservations, and projection-backed storefront queries. API v1 remains available only as a temporary legacy bridge during cutover.',
+    )
+    .setVersion('2.0.0')
+    .addCookieAuth(
+      'access_token',
+      { type: 'apiKey', in: 'cookie', name: 'access_token' },
+      'access_token',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, options);

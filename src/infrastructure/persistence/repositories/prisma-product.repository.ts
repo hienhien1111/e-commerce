@@ -51,7 +51,16 @@ export class PrismaProductRepository implements ProductRepositoryPort {
           create: product.variants.map((variant) => {
             const { productId: _productId, ...data } =
               ProductMapper.variantToPersistence(variant);
-            return data;
+            return {
+              ...data,
+              // v1 labels are opaque legacy combinations. Assign a stable
+              // per-variant key so a product can be created with all of its
+              // legacy variants in one atomic nested Prisma write.
+              combinationKey: variant.label
+                ? `LEGACY:${variant.id}`
+                : 'DEFAULT',
+              currency: 'VND',
+            };
           }),
         },
       },
@@ -249,7 +258,20 @@ export class PrismaProductRepository implements ProductRepositoryPort {
   async createVariant(variant: ProductVariant): Promise<ProductVariant> {
     const created = await this.prisma.$transaction(async (transaction) => {
       const row = await transaction.productVariant.create({
-        data: ProductMapper.variantToPersistence(variant),
+        // Keep the legacy v1 writer safe during the online cutover. New v2
+        // variants are written by PrismaCatalogV2Repository; a legacy label is
+        // intentionally modelled as one opaque combination rather than being
+        // parsed into colour/size values.
+        data: {
+          ...ProductMapper.variantToPersistence(variant),
+          combinationKey: variant.label ? `LEGACY:${variant.id}` : 'DEFAULT',
+          currency: 'VND',
+          status: variant.deletedAt
+            ? 'ARCHIVED'
+            : variant.isActive
+              ? 'ACTIVE'
+              : 'INACTIVE',
+        },
         include: { image: true },
       });
       await this.syncProjection(transaction, variant.productId);
@@ -272,6 +294,13 @@ export class PrismaProductRepository implements ProductRepositoryPort {
           imageId: variant.imageId,
           updatedAt: variant.updatedAt,
           deletedAt: variant.deletedAt,
+          combinationKey: variant.label ? `LEGACY:${variant.id}` : 'DEFAULT',
+          currency: 'VND',
+          status: variant.deletedAt
+            ? 'ARCHIVED'
+            : variant.isActive
+              ? 'ACTIVE'
+              : 'INACTIVE',
         },
         include: { image: true },
       });
@@ -285,7 +314,11 @@ export class PrismaProductRepository implements ProductRepositoryPort {
     await this.prisma.$transaction(async (transaction) => {
       await transaction.productVariant.update({
         where: { id: variant.id },
-        data: { deletedAt: variant.deletedAt, updatedAt: variant.updatedAt },
+        data: {
+          deletedAt: variant.deletedAt,
+          updatedAt: variant.updatedAt,
+          status: 'ARCHIVED',
+        },
       });
       await this.syncProjection(transaction, variant.productId);
     });
