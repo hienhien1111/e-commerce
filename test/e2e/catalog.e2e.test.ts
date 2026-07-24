@@ -123,6 +123,54 @@ describe('Catalog E2E', () => {
       .expect(409);
   });
 
+  it('creates labelled variants atomically with a new product', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/products')
+      .set('Cookie', adminCookie)
+      .send({
+        name: 'Áo tạo cùng biến thể',
+        // v1 retains these required projection fields while deriving their
+        // persisted values from variants in the same nested database write.
+        price: 100000,
+        stock: 3,
+        variants: [
+          {
+            label: 'Đen - M',
+            sku: 'CREATE-BATCH-BLACK-M',
+            price: 100000,
+            stock: 3,
+          },
+          {
+            label: 'Trắng - L',
+            sku: 'CREATE-BATCH-WHITE-L',
+            price: 120000,
+            stock: 5,
+          },
+        ],
+      })
+      .expect(201);
+
+    expect(created.body).toMatchObject({
+      hasVariants: true,
+      price: 100000,
+      stock: 8,
+      priceRange: { min: 100000, max: 120000 },
+    });
+    expect(created.body.variants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Đen - M',
+          sku: 'CREATE-BATCH-BLACK-M',
+        }),
+        expect.objectContaining({
+          label: 'Trắng - L',
+          sku: 'CREATE-BATCH-WHITE-L',
+        }),
+      ]),
+    );
+    expect(created.body.variants).toHaveLength(2);
+  });
+
   it('keeps an active product public after its category is inactive', async () => {
     await request(app.getHttpServer())
       .patch(`/api/v1/categories/${childCategoryId}`)

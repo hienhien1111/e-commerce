@@ -18,6 +18,7 @@ describe('Cart E2E', () => {
   let userCookie: string;
   let productId: string;
   let defaultVariantId: string;
+  let defaultVariantSku: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -40,6 +41,7 @@ describe('Cart E2E', () => {
       .expect(201);
     productId = product.body.id;
     defaultVariantId = product.body.variants[0].id;
+    defaultVariantSku = product.body.variants[0].sku;
   });
 
   afterAll(async () => {
@@ -100,6 +102,80 @@ describe('Cart E2E', () => {
       .expect((response) => expect(response.body.coupon).toBeNull());
     await request(app.getHttpServer())
       .delete(`/api/v1/cart/items/${defaultVariantId}`)
+      .set('Cookie', userCookie)
+      .expect(204);
+  });
+
+  it('keeps two variants of the same product as separate cart lines', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/products/${productId}/variants/${defaultVariantId}`)
+      .set('Cookie', adminCookie)
+      .send({ label: 'Đỏ' })
+      .expect(200);
+    expect(defaultVariantSku).toBeTruthy();
+    const blue = await request(app.getHttpServer())
+      .post(`/api/v1/products/${productId}/variants`)
+      .set('Cookie', adminCookie)
+      .send({
+        label: 'Xanh',
+        sku: `CART-BLUE-${randomUUID()}`,
+        price: 110000,
+        stock: 3,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ variantId: defaultVariantId, quantity: 1 })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ variantId: blue.body.id, quantity: 1 })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.items).toHaveLength(2);
+        expect(
+          response.body.items.map(
+            (item: { variantId: string }) => item.variantId,
+          ),
+        ).toEqual(expect.arrayContaining([defaultVariantId, blue.body.id]));
+      });
+    await request(app.getHttpServer())
+      .delete('/api/v1/cart')
+      .set('Cookie', userCookie)
+      .expect(204);
+  });
+
+  it('rejects a coupon that fails the current subtotal validation', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/coupons')
+      .set('Cookie', adminCookie)
+      .send({
+        code: 'CART-MINIMUM',
+        discountType: 'FIXED_AMOUNT',
+        discountValue: 10000,
+        minOrderAmount: 500000,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ variantId: defaultVariantId, quantity: 1 })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/coupon')
+      .set('Cookie', userCookie)
+      .send({ code: 'CART-MINIMUM' })
+      .expect(422)
+      .expect((response) =>
+        expect(response.body).toMatchObject({
+          code: 'COUPON_INVALID',
+          details: { reason: 'ORDER_BELOW_MINIMUM' },
+        }),
+      );
+    await request(app.getHttpServer())
+      .delete('/api/v1/cart')
       .set('Cookie', userCookie)
       .expect(204);
   });

@@ -4,6 +4,7 @@ import request from 'supertest';
 import { cleanDatabase } from './helpers/db.helper';
 import { createTestApp } from './helpers/test-app.helper';
 import { registerAdmin, registerAndLogin } from './helpers/auth.helper';
+import { PrismaService } from '@/infrastructure/persistence/prisma/prisma.service';
 
 const credentials = (prefix: string) => ({
   email: `${prefix}-${randomUUID()}@example.com`,
@@ -115,8 +116,59 @@ describe('Admin E2E', () => {
         expect(response.body.totalUsers).toBeGreaterThanOrEqual(2);
         expect(response.body.totalProducts).toBeGreaterThanOrEqual(1);
         expect(response.body).toEqual(
-          expect.objectContaining({ recentOrders: expect.any(Array) }),
+          expect.objectContaining({
+            recentOrders: expect.any(Array),
+            reservationFailures: expect.any(Number),
+            refundPending: expect.any(Number),
+            refundFailed: expect.any(Number),
+          }),
         );
+      });
+  });
+
+  it('protects operation monitoring and lets PAYMENT admins retry dead letters', async () => {
+    const prisma = app.get(PrismaService);
+    const operationId = randomUUID();
+    await prisma.outboxMessage.create({
+      data: {
+        id: operationId,
+        aggregateType: 'Order',
+        aggregateId: randomUUID(),
+        eventType: 'OrderSubmitted',
+        payload: {
+          orderId: randomUUID(),
+          cartId: null,
+          cartItemIds: [],
+          couponId: null,
+        },
+        status: 'DEAD_LETTER',
+        attempts: 10,
+        lastError: 'Synthetic E2E dead letter',
+      },
+    });
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/operations')
+      .set('Cookie', customerCookie)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/operations?status=DEAD_LETTER')
+      .set('Cookie', adminCookie)
+      .expect(200)
+      .expect((response) =>
+        expect(
+          response.body.data.some(
+            (operation: { id: string }) => operation.id === operationId,
+          ),
+        ).toBe(true),
+      );
+    await request(app.getHttpServer())
+      .post(`/api/v1/admin/operations/${operationId}/retry`)
+      .set('Cookie', adminCookie)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.id).toBe(operationId);
+        expect(response.body.status).toBe('PENDING');
+        expect(response.body.attempts).toBe(0);
       });
   });
 });

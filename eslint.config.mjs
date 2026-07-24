@@ -74,7 +74,7 @@ export default [
       'no-undef': 'off',
     },
   },
-  // Domain layer isolation: src/domain must NOT import frameworks or outer layers.
+  // Domain layer isolation
   {
     files: ['src/domain/**/*.ts'],
     rules: {
@@ -121,20 +121,15 @@ export default [
               message:
                 'Domain layer must not import from application. Application depends on domain, not the reverse.',
             },
-            {
-              group: ['@/composition/*', '@/composition/**'],
-              message:
-                'Domain layer must not import from composition. Composition is the outermost layer.',
-            },
           ],
         },
       ],
     },
   },
-  // Application layer isolation: composition modules are deliberately outside this tree.
+  // Application layer isolation
   {
     files: ['src/application/**/*.ts'],
-    ignores: ['src/application/**/*.spec.ts'],
+    ignores: ['src/application/**/*.spec.ts', 'src/application/**/*.module.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -162,10 +157,6 @@ export default [
             {
               group: ['@/presentation/*', '@/presentation/**'],
               message: 'Application layer must not import from presentation.',
-            },
-            {
-              group: ['@/composition/*', '@/composition/**'],
-              message: 'Application layer must not import from composition.',
             },
           ],
         },

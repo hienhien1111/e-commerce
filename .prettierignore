@@ -1,0 +1,31 @@
+# Dependencies, runtime output, and test artifacts
+node_modules
+frontend/node_modules
+.next
+frontend/.next
+dist
+frontend/out
+coverage
+.nyc_output
+
+# Generated and migration artifacts
+src/generated
+prisma/migrations
+prisma/.cache
+
+# Local-only files and tool-managed content
+.env
+.env.*
+!.env.example
+!.env.*.example
+.data
+files
+_bmad
+_bmad-output
+.agents
+.codex
+.claude
+.ralph
+
+# Minified/vendor files
+*.min.*

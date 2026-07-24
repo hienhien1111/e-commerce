@@ -4,7 +4,7 @@ import request from 'supertest';
 import { PrismaService } from '@/infrastructure/persistence/prisma/prisma.service';
 import { PAYMENT_GATEWAY_PORT } from '@/application/payment/ports/payment.gateway.port.token';
 import { InMemoryMomoGateway } from './helpers/in-memory-momo-gateway';
-import { cleanDatabase } from './helpers/db.helper';
+import { cleanDatabase, waitFor } from './helpers/db.helper';
 import { createTestApp } from './helpers/test-app.helper';
 import { registerAdmin, registerAndLogin } from './helpers/auth.helper';
 
@@ -98,7 +98,7 @@ describe('Full commerce flow E2E', () => {
     });
   }
 
-  it('runs catalog → cart/coupon → order → IPN → delivered and preserves an overused coupon cart', async () => {
+  it('runs catalog → cart/coupon → order → IPN → delivered and rejects an exhausted coupon immediately', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/cart/items')
       .set('Cookie', customerCookie)
@@ -140,11 +140,6 @@ describe('Full commerce flow E2E', () => {
       .post('/api/v1/cart/coupon')
       .set('Cookie', secondCustomerCookie)
       .send({ code: 'ONEUSE' })
-      .expect(200);
-    await request(app.getHttpServer())
-      .post('/api/v1/orders')
-      .set('Cookie', secondCustomerCookie)
-      .send({ shippingAddress })
       .expect(422);
     await request(app.getHttpServer())
       .get('/api/v1/cart')
@@ -176,6 +171,10 @@ describe('Full commerce flow E2E', () => {
       .set('Cookie', customerCookie)
       .expect(200);
     const prisma = app.get(PrismaService);
+    await waitFor(
+      () => prisma.order.findUniqueOrThrow({ where: { id: order.body.id } }),
+      (current) => current.reservationStatus === 'RELEASED',
+    );
     expect(
       (await prisma.product.findUniqueOrThrow({ where: { id: productId } }))
         .stock,

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '@/infrastructure/persistence/prisma/prisma.service';
-import { cleanDatabase } from './helpers/db.helper';
+import { cleanDatabase, waitFor } from './helpers/db.helper';
 import { createTestApp } from './helpers/test-app.helper';
 import { registerAdmin, registerAndLogin } from './helpers/auth.helper';
 
@@ -128,6 +128,10 @@ describe('Order E2E', () => {
       .expect(200)
       .expect((response) => expect(response.body.status).toBe('CANCELLED'));
     const prisma = app.get(PrismaService);
+    await waitFor(
+      () => prisma.order.findUniqueOrThrow({ where: { id: orderId } }),
+      (order) => order.reservationStatus === 'RELEASED',
+    );
     expect(
       (await prisma.product.findUniqueOrThrow({ where: { id: productId } }))
         .stock,
@@ -240,6 +244,10 @@ describe('Order E2E', () => {
       .post(`/api/v1/orders/${placed.body.id}/cancel`)
       .set('Cookie', userCookie)
       .expect(200);
+    await waitFor(
+      () => prisma.order.findUniqueOrThrow({ where: { id: placed.body.id } }),
+      (order) => order.reservationStatus === 'RELEASED',
+    );
     expect(
       (await prisma.product.findUniqueOrThrow({ where: { id: productId } }))
         .stock,
@@ -310,5 +318,225 @@ describe('Order E2E', () => {
         expect(response.body.counts.CANCELLED).toBeGreaterThanOrEqual(2);
         expect(response.body.totalRevenue).toBe(0);
       });
+  });
+
+  it('returns 202 while reservation is pending and preserves cart items added after the snapshot', async () => {
+    const second = await request(app.getHttpServer())
+      .post('/api/v1/products')
+      .set('Cookie', adminCookie)
+      .send({
+        name: 'Post checkout item',
+        price: 50000,
+        stock: 3,
+        sku: `POST-${randomUUID()}`,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ productId, quantity: 1 })
+      .expect(201);
+    const priorWait = process.env.COMMERCE_CHECKOUT_WAIT_MS;
+    process.env.COMMERCE_CHECKOUT_WAIT_MS = '0';
+    const placed = await request(app.getHttpServer())
+      .post('/api/v1/orders')
+      .set('Cookie', userCookie)
+      .send({ shippingAddress })
+      .expect(202);
+    if (priorWait === undefined) delete process.env.COMMERCE_CHECKOUT_WAIT_MS;
+    else process.env.COMMERCE_CHECKOUT_WAIT_MS = priorWait;
+
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ productId: second.body.id, quantity: 1 })
+      .expect(201);
+    const prisma = app.get(PrismaService);
+    await waitFor(
+      () => prisma.order.findUniqueOrThrow({ where: { id: placed.body.id } }),
+      (order) => order.reservationStatus !== 'PENDING',
+    );
+    await request(app.getHttpServer())
+      .get('/api/v1/cart')
+      .set('Cookie', userCookie)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toHaveLength(1);
+        expect(response.body.items[0].productId).toBe(second.body.id);
+      });
+    await request(app.getHttpServer())
+      .delete('/api/v1/cart')
+      .set('Cookie', userCookie)
+      .expect(204);
+  });
+
+  it('serializes concurrent reservations so inventory cannot be oversold', async () => {
+    const scarce = await request(app.getHttpServer())
+      .post('/api/v1/products')
+      .set('Cookie', adminCookie)
+      .send({
+        name: 'Scarce product',
+        price: 75000,
+        stock: 1,
+        sku: `SCARCE-${randomUUID()}`,
+      })
+      .expect(201);
+    const rivalCookie = (
+      await registerAndLogin(app, credentials('order-rival'))
+    ).access;
+    await Promise.all(
+      [userCookie, rivalCookie].map((cookie) =>
+        request(app.getHttpServer())
+          .post('/api/v1/cart/items')
+          .set('Cookie', cookie)
+          .send({ productId: scarce.body.id, quantity: 1 })
+          .expect(201),
+      ),
+    );
+    const responses = await Promise.all(
+      [userCookie, rivalCookie].map((cookie) =>
+        request(app.getHttpServer())
+          .post('/api/v1/orders')
+          .set('Cookie', cookie)
+          .send({ shippingAddress }),
+      ),
+    );
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      201, 422,
+    ]);
+    const prisma = app.get(PrismaService);
+    expect(
+      (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: scarce.body.id },
+        })
+      ).stock,
+    ).toBe(0);
+    expect(
+      await prisma.order.count({
+        where: {
+          items: { some: { productId: scarce.body.id } },
+          reservationStatus: 'RESERVED',
+        },
+      }),
+    ).toBe(1);
+    for (const cookie of [userCookie, rivalCookie]) {
+      await request(app.getHttpServer())
+        .delete('/api/v1/cart')
+        .set('Cookie', cookie)
+        .expect(204);
+    }
+  });
+
+  it('recognizes COD revenue at SHIPPED and supports admin commerce filters', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/cart/items')
+      .set('Cookie', userCookie)
+      .send({ productId, quantity: 1 })
+      .expect(201);
+    const placed = await request(app.getHttpServer())
+      .post('/api/v1/orders')
+      .set('Cookie', userCookie)
+      .send({ shippingAddress, paymentMethod: 'COD' })
+      .expect(201);
+    for (const status of ['CONFIRMED', 'PROCESSING', 'SHIPPED']) {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/admin/orders/${placed.body.id}/status`)
+        .set('Cookie', adminCookie)
+        .send({ status })
+        .expect(200);
+    }
+    const prisma = app.get(PrismaService);
+    const shipped = await prisma.order.findUniqueOrThrow({
+      where: { id: placed.body.id },
+    });
+    expect(shipped.paymentStatus).toBe('PAID');
+    expect(shipped.paidAt).toBeInstanceOf(Date);
+    await request(app.getHttpServer())
+      .get(
+        '/api/v1/admin/orders?search=0900000000&paymentMethod=COD&paymentStatus=PAID&reservationStatus=RESERVED',
+      )
+      .set('Cookie', adminCookie)
+      .expect(200)
+      .expect((response) =>
+        expect(
+          response.body.data.some(
+            (order: { id: string }) => order.id === placed.body.id,
+          ),
+        ).toBe(true),
+      );
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/orders/stats')
+      .set('Cookie', adminCookie)
+      .expect(200)
+      .expect((response) =>
+        expect(response.body.totalRevenue).toBeGreaterThanOrEqual(
+          placed.body.total,
+        ),
+      );
+  });
+
+  it('serializes coupon max-usage validation during concurrent checkout', async () => {
+    const limitedProduct = await request(app.getHttpServer())
+      .post('/api/v1/products')
+      .set('Cookie', adminCookie)
+      .send({
+        name: 'Coupon race product',
+        price: 80000,
+        stock: 2,
+        sku: `COUPON-RACE-${randomUUID()}`,
+      })
+      .expect(201);
+    const limitedCoupon = await request(app.getHttpServer())
+      .post('/api/v1/coupons')
+      .set('Cookie', adminCookie)
+      .send({
+        code: `ONCE-${randomUUID()}`,
+        discountType: 'FIXED_AMOUNT',
+        discountValue: 10000,
+        maxUsage: 1,
+      })
+      .expect(201);
+    const rivalCookie = (
+      await registerAndLogin(app, credentials('coupon-rival'))
+    ).access;
+    for (const cookie of [userCookie, rivalCookie]) {
+      await request(app.getHttpServer())
+        .post('/api/v1/cart/items')
+        .set('Cookie', cookie)
+        .send({ productId: limitedProduct.body.id, quantity: 1 })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post('/api/v1/cart/coupon')
+        .set('Cookie', cookie)
+        .send({ code: limitedCoupon.body.code })
+        .expect(200);
+    }
+    const results = await Promise.all(
+      [userCookie, rivalCookie].map((cookie) =>
+        request(app.getHttpServer())
+          .post('/api/v1/orders')
+          .set('Cookie', cookie)
+          .send({ shippingAddress }),
+      ),
+    );
+    expect(results.map((response) => response.status).sort()).toEqual([
+      201, 422,
+    ]);
+    const prisma = app.get(PrismaService);
+    expect(
+      (
+        await prisma.coupon.findUniqueOrThrow({
+          where: { id: limitedCoupon.body.id },
+        })
+      ).usedCount,
+    ).toBe(1);
+    expect(
+      (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: limitedProduct.body.id },
+        })
+      ).stock,
+    ).toBe(1);
   });
 });

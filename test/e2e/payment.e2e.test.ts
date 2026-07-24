@@ -4,7 +4,7 @@ import request from 'supertest';
 import { PrismaService } from '@/infrastructure/persistence/prisma/prisma.service';
 import { PAYMENT_GATEWAY_PORT } from '@/application/payment/ports/payment.gateway.port.token';
 import { InMemoryMomoGateway } from './helpers/in-memory-momo-gateway';
-import { cleanDatabase } from './helpers/db.helper';
+import { cleanDatabase, waitFor } from './helpers/db.helper';
 import { createTestApp } from './helpers/test-app.helper';
 import { registerAdmin, registerAndLogin } from './helpers/auth.helper';
 
@@ -256,7 +256,7 @@ describe('Payment E2E', () => {
     expect(gateway.initiations).toHaveLength(priorCalls + 1);
   });
 
-  it('keeps a cancelled order cancelled when a valid success IPN arrives late', async () => {
+  it('keeps a cancelled order cancelled and refunds a late success IPN exactly once', async () => {
     const orderId = await createOrder();
     await request(app.getHttpServer())
       .post('/api/v1/payments/initiate')
@@ -267,15 +267,57 @@ describe('Payment E2E', () => {
       .post(`/api/v1/orders/${orderId}/cancel`)
       .set('Cookie', userCookie)
       .expect(200);
+    const callback = webhook(orderId);
     await request(app.getHttpServer())
       .post('/api/v1/webhooks/momo')
-      .send(webhook(orderId))
+      .send(callback)
       .expect(200);
     const prisma = app.get(PrismaService);
-    const order = await prisma.order.findUniqueOrThrow({
-      where: { id: orderId },
-    });
+    await request(app.getHttpServer())
+      .post('/api/v1/webhooks/momo')
+      .send(callback)
+      .expect(200);
+    const order = await waitFor(
+      () => prisma.order.findUniqueOrThrow({ where: { id: orderId } }),
+      (current) => current.paymentStatus === 'REFUNDED',
+    );
     expect(order.status).toBe('CANCELLED');
-    expect(order.paymentStatus).toBe('PAID');
+    expect(order.paymentStatus).toBe('REFUNDED');
+    expect(order.paidAt).toBeInstanceOf(Date);
+    expect(
+      gateway.refunds.filter((refund) => refund.amount === 100000),
+    ).toHaveLength(1);
+    expect(
+      await prisma.paymentRefund.count({
+        where: { payment: { orderId } },
+      }),
+    ).toBe(1);
+  });
+
+  it('expires unpaid MoMo reservations and releases inventory exactly once', async () => {
+    const orderId = await createOrder();
+    const prisma = app.get(PrismaService);
+    const stockBeforeExpiry = (
+      await prisma.product.findUniqueOrThrow({ where: { id: productId } })
+    ).stock;
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { reservationExpiresAt: new Date(Date.now() - 1_000) },
+    });
+    const expired = await waitFor(
+      () => prisma.order.findUniqueOrThrow({ where: { id: orderId } }),
+      (order) =>
+        order.status === 'CANCELLED' && order.reservationStatus === 'RELEASED',
+    );
+    expect(expired.cancellationReason).toBe('PAYMENT_EXPIRED');
+    expect(
+      (await prisma.product.findUniqueOrThrow({ where: { id: productId } }))
+        .stock,
+    ).toBe(stockBeforeExpiry + 1);
+    await new Promise((resolve) => setTimeout(resolve, 1_200));
+    expect(
+      (await prisma.product.findUniqueOrThrow({ where: { id: productId } }))
+        .stock,
+    ).toBe(stockBeforeExpiry + 1);
   });
 });

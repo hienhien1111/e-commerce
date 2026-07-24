@@ -2,6 +2,9 @@ import { createMomoIpnSignature } from '@/infrastructure/providers/momo-payment.
 import type {
   MomoGatewaySession,
   MomoInitiationInput,
+  MomoRefundInput,
+  MomoRefundResult,
+  MomoTransactionQueryResult,
   MomoWebhookPayload,
   PaymentGatewayPort,
 } from '@/application/payment/ports/payment.gateway.port';
@@ -12,7 +15,12 @@ const partnerCode = 'MOMO_TEST';
 
 export class InMemoryMomoGateway implements PaymentGatewayPort {
   readonly initiations: MomoInitiationInput[] = [];
+  readonly refunds: MomoRefundInput[] = [];
+  readonly refundedByProviderOrderId = new Map<string, number>();
+  readonly transactionByProviderOrderId = new Map<string, string>();
   nextResult: Partial<MomoGatewaySession> | null = null;
+  nextQueryError: Error | null = null;
+  nextRefundError: Error | null = null;
 
   isConfigured(): boolean {
     return true;
@@ -38,6 +46,46 @@ export class InMemoryMomoGateway implements PaymentGatewayPort {
     );
   }
 
+  async queryTransaction(input: {
+    providerOrderId: string;
+  }): Promise<MomoTransactionQueryResult> {
+    if (this.nextQueryError) {
+      const error = this.nextQueryError;
+      this.nextQueryError = null;
+      throw error;
+    }
+    return {
+      resultCode: 0,
+      message: 'Successful.',
+      refundedAmount:
+        this.refundedByProviderOrderId.get(input.providerOrderId) ?? 0,
+    };
+  }
+
+  async refund(input: MomoRefundInput): Promise<MomoRefundResult> {
+    if (this.nextRefundError) {
+      const error = this.nextRefundError;
+      this.nextRefundError = null;
+      throw error;
+    }
+    this.refunds.push(input);
+    const providerOrderId = [
+      ...this.transactionByProviderOrderId.entries(),
+    ].find(([, transId]) => transId === input.providerTransId)?.[0];
+    if (providerOrderId) {
+      this.refundedByProviderOrderId.set(
+        providerOrderId,
+        (this.refundedByProviderOrderId.get(providerOrderId) ?? 0) +
+          input.amount,
+      );
+    }
+    return {
+      resultCode: 0,
+      message: 'Successful.',
+      refundTransId: `refund-${this.refunds.length}`,
+    };
+  }
+
   sign(payload: Omit<MomoWebhookPayload, 'signature'>): string {
     return createMomoIpnSignature(payload, secretKey, accessKey);
   }
@@ -46,6 +94,9 @@ export class InMemoryMomoGateway implements PaymentGatewayPort {
     input: Omit<MomoWebhookPayload, 'signature' | 'partnerCode'>,
   ): MomoWebhookPayload {
     const payload = { ...input, partnerCode };
+    if (input.resultCode === 0) {
+      this.transactionByProviderOrderId.set(input.orderId, input.transId);
+    }
     return { ...payload, signature: this.sign(payload) };
   }
 }
