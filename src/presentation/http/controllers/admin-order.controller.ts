@@ -12,7 +12,13 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnprocessableEntityResponse,
+} from '@nestjs/swagger';
 import { CurrentUser } from '@/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/infrastructure/strategies/jwt.strategy';
 import { CheckPermissions } from '@/infrastructure/decorators/check-permissions.decorator';
@@ -34,6 +40,7 @@ import {
   OrderPageDto,
   OrderStatsDto,
 } from '@/presentation/http/dtos/order.dto';
+import { ErrorResponseDto } from '@/presentation/http/dtos/error-response.dto';
 
 @ApiTags('Admin Orders')
 @ApiCookieAuth('access_token')
@@ -46,6 +53,11 @@ export class AdminOrderController {
   ) {}
 
   @Get()
+  @ApiOperation({
+    summary: 'Search and filter orders',
+    description:
+      'Search supports exact order UUID, customer email/name and shipping phone. Legacy userId remains supported.',
+  })
   @CheckPermissions({
     action: PermissionActionEnum.READ,
     subject: PermissionSubjectEnum.ORDER,
@@ -56,6 +68,10 @@ export class AdminOrderController {
       new GetAdminOrdersQuery({
         status: query.status,
         userId: query.userId,
+        search: query.search?.trim() || undefined,
+        paymentMethod: query.paymentMethod,
+        paymentStatus: query.paymentStatus,
+        reservationStatus: query.reservationStatus,
         from: query.from,
         to: query.to,
         cursor: query.cursor ?? null,
@@ -65,6 +81,11 @@ export class AdminOrderController {
   }
 
   @Get('stats')
+  @ApiOperation({
+    summary: 'Get paid revenue and fulfillment counts',
+    description:
+      'Revenue is filtered by paidAt and includes only PAID orders; order counts are filtered by createdAt.',
+  })
   @CheckPermissions({
     action: PermissionActionEnum.READ,
     subject: PermissionSubjectEnum.ORDER,
@@ -90,6 +111,7 @@ export class AdminOrderController {
     subject: PermissionSubjectEnum.ORDER,
   })
   @ApiOkResponse({ type: OrderDto })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDto })
   updateStatus(@Param('id') id: string, @Body() body: UpdateOrderStatusDto) {
     return this.commands.execute(new UpdateOrderStatusCommand(id, body.status));
   }
@@ -101,6 +123,7 @@ export class AdminOrderController {
     subject: PermissionSubjectEnum.ORDER,
   })
   @ApiOkResponse({ type: OrderDto })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDto })
   cancel(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.commands.execute(new CancelOrderCommand(id, user.id, true));
   }

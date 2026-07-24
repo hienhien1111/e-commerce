@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client';
 import type { AdminDashboardRepositoryPort } from '@/application/admin/ports/admin-dashboard.repository.port';
 import type { AdminDashboardStats } from '@/application/admin/types/admin-dashboard.types';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
+import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
+import { ReservationStatusEnum } from '@/domain/enums/reservation-status.enum';
 import { PrismaService } from '@/infrastructure/persistence/prisma/prisma.service';
 import {
   OrderMapper,
@@ -39,7 +41,7 @@ export class PrismaAdminDashboardRepository
     const { start, end } = hcmDayBounds();
     const activeRevenue = {
       deletedAt: null,
-      status: { not: OrderStatusEnum.CANCELLED },
+      paymentStatus: PaymentStatusEnum.PAID,
     } as const;
     const [
       totalUsers,
@@ -48,6 +50,9 @@ export class PrismaAdminDashboardRepository
       revenue,
       todayRevenue,
       pendingOrders,
+      reservationFailures,
+      refundPending,
+      refundFailed,
       recentOrders,
     ] = await Promise.all([
       this.prisma.user.count({ where: { deletedAt: null } }),
@@ -58,11 +63,23 @@ export class PrismaAdminDashboardRepository
         _sum: { total: true },
       }),
       this.prisma.order.aggregate({
-        where: { ...activeRevenue, createdAt: { gte: start, lt: end } },
+        where: { ...activeRevenue, paidAt: { gte: start, lt: end } },
         _sum: { total: true },
       }),
       this.prisma.order.count({
         where: { deletedAt: null, status: OrderStatusEnum.PENDING },
+      }),
+      this.prisma.order.count({
+        where: {
+          deletedAt: null,
+          reservationStatus: ReservationStatusEnum.FAILED,
+        },
+      }),
+      this.prisma.payment.count({
+        where: { status: PaymentStatusEnum.REFUND_PENDING },
+      }),
+      this.prisma.payment.count({
+        where: { status: PaymentStatusEnum.REFUND_FAILED },
       }),
       this.prisma.order.findMany({
         where: { deletedAt: null },
@@ -79,6 +96,9 @@ export class PrismaAdminDashboardRepository
       totalRevenue: revenue._sum.total?.toNumber() ?? 0,
       revenueToday: todayRevenue._sum.total?.toNumber() ?? 0,
       pendingOrders,
+      reservationFailures,
+      refundPending,
+      refundFailed,
       recentOrders: recentOrders.map((row) =>
         OrderMapper.toDomain(row as PrismaOrderWithRelations),
       ),

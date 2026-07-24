@@ -7,5 +7,8 @@ export type AdminDashboardStats = {
   totalRevenue: number;
   revenueToday: number;
   pendingOrders: number;
+  reservationFailures: number;
+  refundPending: number;
+  refundFailed: number;
   recentOrders: Order[];
 };

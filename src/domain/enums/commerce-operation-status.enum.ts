@@ -1,0 +1,7 @@
+export enum CommerceOperationStatusEnum {
+  PENDING = 'PENDING',
+  PUBLISHED = 'PUBLISHED',
+  PROCESSING = 'PROCESSING',
+  PROCESSED = 'PROCESSED',
+  DEAD_LETTER = 'DEAD_LETTER',
+}
