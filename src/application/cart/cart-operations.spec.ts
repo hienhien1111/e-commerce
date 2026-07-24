@@ -1,4 +1,3 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ClearCartHandler } from '@/application/cart/commands/clear-cart/clear-cart.handler';
 import { RemoveCartCouponHandler } from '@/application/cart/commands/remove-cart-coupon/remove-cart-coupon.handler';
 import { RemoveFromCartHandler } from '@/application/cart/commands/remove-from-cart/remove-from-cart.handler';
@@ -8,6 +7,7 @@ import { CartProductService } from '@/application/cart/services/cart-product.ser
 import { CartViewService } from '@/application/cart/services/cart-view.service';
 import { CartFactory } from '@/domain/factories/cart.factory';
 import { CartItemFactory } from '@/domain/factories/cart-item.factory';
+import { ApplicationError } from '@/application/shared/errors/application.error';
 
 const product = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: 'product-1',
@@ -50,13 +50,15 @@ describe('Cart application operations', () => {
       },
     );
     lookup.findByIds.mockResolvedValueOnce([product({ stock: 2 })]);
-    await expect(service.assertSellable('variant-1', 3)).rejects.toThrow(
-      ConflictException,
-    );
+    await expect(service.assertSellable('variant-1', 3)).rejects.toMatchObject({
+      code: 'INSUFFICIENT_STOCK',
+      kind: 'CONFLICT',
+    });
     lookup.findByIds.mockResolvedValueOnce([product({ isActive: false })]);
-    await expect(service.assertSellable('variant-1', 1)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.assertSellable('variant-1', 1)).rejects.toMatchObject({
+      code: 'PRODUCT_UNAVAILABLE',
+      kind: 'NOT_FOUND',
+    });
   });
 
   it('builds an empty cart and reports unavailable items with coupon state', async () => {
@@ -104,13 +106,15 @@ describe('Cart application operations', () => {
     const result = await new RemoveCartCouponHandler(
       repository as never,
       view as never,
-    ).execute({ userId: 'user-1' });
+    ).execute({
+      userId: 'user-1',
+    });
 
     expect(result).toEqual({ id: null, items: [] });
     expect(view.build).toHaveBeenCalledWith(null);
   });
 
-  it('removes an item and maps a missing cart item to HTTP not found', async () => {
+  it('removes an item and maps a missing cart item to an application error', async () => {
     const repository = {
       findByUserId: jest.fn().mockResolvedValue(cart()),
       save: jest.fn(),
@@ -121,7 +125,10 @@ describe('Cart application operations', () => {
     expect(repository.save).toHaveBeenCalled();
     await expect(
       handler.execute({ userId: 'user-1', variantId: 'missing' }),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toMatchObject({
+      code: 'CART_ITEM_NOT_FOUND',
+      kind: 'NOT_FOUND',
+    });
   });
 
   it('updates an item through the product guard and returns the server cart view', async () => {
@@ -155,7 +162,7 @@ describe('Cart application operations', () => {
         variantId: 'variant-1',
         quantity: 1,
       }),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toBeInstanceOf(ApplicationError);
   });
 
   it('delegates a cart read to the cart view service', async () => {

@@ -3,7 +3,7 @@ import { ApplyCartCouponHandler } from './apply-cart-coupon.handler';
 import { ApplyCartCouponCommand } from './apply-cart-coupon.command';
 
 describe('ApplyCartCouponHandler', () => {
-  it('keeps a known but currently invalid coupon on the cart for checkout revalidation', async () => {
+  it('rejects a known but currently invalid coupon before mutating the cart', async () => {
     const cart = {
       items: [{ productId: 'product-1', quantity: 1 }],
       applyCoupon: mock(),
@@ -29,9 +29,14 @@ describe('ApplyCartCouponHandler', () => {
       view as never,
     );
 
-    await handler.execute(new ApplyCartCouponCommand('user-1', 'ONEUSE'));
+    await expect(
+      handler.execute(new ApplyCartCouponCommand('user-1', 'ONEUSE')),
+    ).rejects.toMatchObject({
+      code: 'COUPON_INVALID',
+      details: { reason: 'MAX_USAGE_REACHED' },
+    });
 
-    expect(cart.applyCoupon).toHaveBeenCalledWith('coupon-1');
-    expect(repository.save).toHaveBeenCalledWith(cart);
+    expect(cart.applyCoupon).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 });

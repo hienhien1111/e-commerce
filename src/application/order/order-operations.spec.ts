@@ -1,8 +1,3 @@
-import {
-  ForbiddenException,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
 import { GetAdminDashboardStatsHandler } from '@/application/admin/queries/get-admin-dashboard-stats/get-admin-dashboard-stats.handler';
 import { CancelOrderHandler } from '@/application/order/commands/cancel-order/cancel-order.handler';
 import { PlaceBuyNowOrderHandler } from '@/application/order/commands/place-buy-now-order/place-buy-now-order.handler';
@@ -13,6 +8,7 @@ import { GetAdminOrdersHandler } from '@/application/order/queries/get-admin-ord
 import { GetOrderStatsHandler } from '@/application/order/queries/get-order-stats/get-order-stats.handler';
 import { GetOrderHandler } from '@/application/order/queries/get-order/get-order.handler';
 import { GetOrdersHandler } from '@/application/order/queries/get-orders/get-orders.handler';
+import { ApplicationError } from '@/application/shared/errors/application.error';
 import { OrderStatusEnum } from '@/domain/enums/order-status.enum';
 import { PaymentMethodEnum } from '@/domain/enums/payment-method.enum';
 import { PaymentStatusEnum } from '@/domain/enums/payment-status.enum';
@@ -52,15 +48,13 @@ const order = (overrides: Partial<Record<string, unknown>> = {}) =>
   } as never);
 
 describe('Order application operations', () => {
-  it('checks ownership before cancellation and publishes the cancellation event', async () => {
+  it('checks ownership before delegating cancellation to the workflow', async () => {
     const existing = order();
     const orders = { findById: jest.fn().mockResolvedValue(existing) };
     const cancellation = { cancel: jest.fn().mockResolvedValue(existing) };
-    const events = { publish: jest.fn() };
     const handler = new CancelOrderHandler(
       orders as never,
       cancellation as never,
-      events as never,
     );
 
     await expect(
@@ -69,7 +63,10 @@ describe('Order application operations', () => {
         userId: 'other',
         isAdmin: false,
       }),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toMatchObject({
+      code: 'ORDER_FORBIDDEN',
+      kind: 'FORBIDDEN',
+    });
     await expect(
       handler.execute({
         orderId: existing.id,
@@ -81,23 +78,22 @@ describe('Order application operations', () => {
       orderId: existing.id,
       allowProcessing: false,
     });
-    expect(events.publish).toHaveBeenCalledTimes(1);
   });
 
-  it('checks out cart and buy-now orders then publishes their placed events', async () => {
+  it('checks out cart and buy-now orders then waits for reservation', async () => {
     const created = order();
     const checkout = {
       checkout: jest.fn().mockResolvedValue(created),
       checkoutBuyNow: jest.fn().mockResolvedValue(created),
     };
-    const events = { publish: jest.fn() };
+    const waiter = { wait: jest.fn().mockResolvedValue(created) };
     const cartHandler = new PlaceOrderHandler(
       checkout as never,
-      events as never,
+      waiter as never,
     );
     const buyNowHandler = new PlaceBuyNowOrderHandler(
       checkout as never,
-      events as never,
+      waiter as never,
     );
 
     await expect(
@@ -109,7 +105,7 @@ describe('Order application operations', () => {
         productId: 'product-1',
       } as never),
     ).resolves.toBe(created);
-    expect(events.publish).toHaveBeenCalledTimes(2);
+    expect(waiter.wait).toHaveBeenCalledTimes(2);
   });
 
   it('updates only allowed order transitions', async () => {
@@ -131,13 +127,13 @@ describe('Order application operations', () => {
         orderId: existing.id,
         status: OrderStatusEnum.CANCELLED,
       }),
-    ).rejects.toThrow(UnprocessableEntityException);
+    ).rejects.toBeInstanceOf(ApplicationError);
     await expect(
       handler.execute({
         orderId: existing.id,
         status: OrderStatusEnum.DELIVERED,
       }),
-    ).rejects.toThrow(UnprocessableEntityException);
+    ).rejects.toBeInstanceOf(ApplicationError);
   });
 
   it('enforces ownership for customer order reads and exposes admin reads', async () => {
@@ -155,7 +151,7 @@ describe('Order application operations', () => {
         userId: 'other',
         isAdmin: false,
       }),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toMatchObject({ code: 'ORDER_FORBIDDEN', kind: 'FORBIDDEN' });
     await expect(
       new GetOrderHandler(orders as never).execute({
         orderId: existing.id,
@@ -179,11 +175,13 @@ describe('Order application operations', () => {
     ).resolves.toEqual({ data: [existing] });
     await expect(
       new GetOrderStatsHandler(orders as never).execute({}),
-    ).resolves.toEqual({ totalOrders: 1 });
+    ).resolves.toEqual({
+      totalOrders: 1,
+    });
     orders.findById.mockResolvedValueOnce(null);
     await expect(
       new GetAdminOrderHandler(orders as never).execute({ orderId: 'missing' }),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toMatchObject({ code: 'ORDER_NOT_FOUND', kind: 'NOT_FOUND' });
   });
 
   it('delegates dashboard statistics to the admin dashboard port', async () => {
@@ -192,6 +190,8 @@ describe('Order application operations', () => {
     };
     await expect(
       new GetAdminDashboardStatsHandler(dashboard as never).execute(),
-    ).resolves.toEqual({ totalUsers: 2 });
+    ).resolves.toEqual({
+      totalUsers: 2,
+    });
   });
 });

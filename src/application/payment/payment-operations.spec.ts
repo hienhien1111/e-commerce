@@ -1,10 +1,3 @@
-import {
-  ForbiddenException,
-  NotFoundException,
-  ServiceUnavailableException,
-  UnauthorizedException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
 import { InitiatePaymentHandler } from '@/application/payment/commands/initiate-payment/initiate-payment.handler';
 import { SettleMomoWebhookHandler } from '@/application/payment/commands/settle-momo-webhook/settle-momo-webhook.handler';
 import { GetPaymentForOrderHandler } from '@/application/payment/queries/get-payment-for-order/get-payment-for-order.handler';
@@ -92,7 +85,10 @@ describe('Payment application operations', () => {
     );
     await expect(
       handler.execute({ orderId: 'order-1', userId: 'user-1' }),
-    ).rejects.toThrow(ServiceUnavailableException);
+    ).rejects.toMatchObject({
+      code: 'MOMO_NOT_CONFIGURED',
+      kind: 'UNAVAILABLE',
+    });
   });
 
   it('reuses an active payment reservation without calling MoMo again', async () => {
@@ -111,13 +107,11 @@ describe('Payment application operations', () => {
     const config = {
       getOrThrow: jest.fn().mockReturnValue({ paymentExpiryMinutes: 15 }),
     };
-    const events = { publish: jest.fn() };
     const handler = new InitiatePaymentHandler(
       orders as never,
       payments as never,
       gateway as never,
       config as never,
-      events as never,
     );
 
     await expect(
@@ -126,7 +120,7 @@ describe('Payment application operations', () => {
     expect(gateway.initiate).not.toHaveBeenCalled();
   });
 
-  it('starts a signed MoMo session and publishes payment initiation', async () => {
+  it('starts a signed MoMo session after reservation succeeds', async () => {
     const reserved = payment();
     const orders = { findById: jest.fn().mockResolvedValue(order()) };
     const payments = {
@@ -155,42 +149,40 @@ describe('Payment application operations', () => {
         ipnUrl: 'https://example.test/ipn',
       }),
     };
-    const events = { publish: jest.fn() };
     const handler = new InitiatePaymentHandler(
       orders as never,
       payments as never,
       gateway as never,
       config as never,
-      events as never,
     );
 
     await expect(
       handler.execute({ orderId: 'order-1', userId: 'user-1' }),
     ).resolves.toBe(reserved);
     expect(payments.completeMomoInitiation).toHaveBeenCalled();
-    expect(events.publish).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects invalid webhooks and publishes only changed settlement outcomes', async () => {
+  it('rejects invalid webhooks and delegates verified outcomes', async () => {
     const gateway = { verifyWebhook: jest.fn().mockReturnValue(false) };
     const settlement = { settleMomoWebhook: jest.fn() };
-    const events = { publish: jest.fn() };
     const handler = new SettleMomoWebhookHandler(
       gateway as never,
       settlement as never,
-      events as never,
     );
 
-    await expect(handler.execute({ payload: webhookPayload })).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      handler.execute({ payload: webhookPayload }),
+    ).rejects.toMatchObject({
+      code: 'MOMO_SIGNATURE_INVALID',
+      kind: 'UNAUTHORIZED',
+    });
     gateway.verifyWebhook.mockReturnValueOnce(true);
     settlement.settleMomoWebhook.mockResolvedValueOnce({
       changed: true,
       payment: payment(PaymentStatusEnum.PAID),
     });
     await handler.execute({ payload: webhookPayload });
-    expect(events.publish).toHaveBeenCalledTimes(1);
+    expect(settlement.settleMomoWebhook).toHaveBeenCalledTimes(1);
   });
 
   it('enforces payment ownership and payment method on payment reads', async () => {
@@ -203,16 +195,19 @@ describe('Payment application operations', () => {
 
     await expect(
       handler.execute({ userId: 'other', orderId: 'order-1' }),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toMatchObject({ code: 'PAYMENT_FORBIDDEN', kind: 'FORBIDDEN' });
     orders.findById.mockResolvedValueOnce(
       order({ paymentMethod: PaymentMethodEnum.COD }),
     );
     await expect(
       handler.execute({ userId: 'user-1', orderId: 'order-1' }),
-    ).rejects.toThrow(UnprocessableEntityException);
+    ).rejects.toMatchObject({
+      code: 'PAYMENT_METHOD_NOT_MOMO',
+      kind: 'UNPROCESSABLE',
+    });
     orders.findById.mockResolvedValueOnce(null);
     await expect(
       handler.execute({ userId: 'user-1', orderId: 'missing' }),
-    ).rejects.toThrow(NotFoundException);
+    ).rejects.toMatchObject({ code: 'ORDER_NOT_FOUND', kind: 'NOT_FOUND' });
   });
 });

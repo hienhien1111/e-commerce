@@ -79,4 +79,24 @@ describe('Payment', () => {
       }),
     ).toThrow('cannot be retried');
   });
+
+  it('models refund pending, failure, retry completion, and terminal duplicates', () => {
+    const payment = createPayment();
+    payment.complete('provider-transaction');
+    expect(payment.requestRefund()).toBe(true);
+    expect(payment.requestRefund()).toBe(false);
+    expect(payment.failRefund()).toBe(true);
+    expect(payment.failRefund()).toBe(false);
+    expect(payment.completeRefund()).toBe(true);
+    expect(payment.completeRefund()).toBe(false);
+    expect(payment.complete('late-payment-callback')).toBe(false);
+    expect(() =>
+      payment.startAttempt({
+        providerOrderId: 'late-attempt',
+        requestId: 'late-request',
+        expiresAt: new Date(Date.now() + 60_000),
+        attempt: 3,
+      }),
+    ).toThrow('Settled payment cannot be retried');
+  });
 });
