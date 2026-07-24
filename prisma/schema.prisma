@@ -54,12 +54,37 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  REFUND_PENDING
+  REFUND_FAILED
   REFUNDED
 }
 
 enum PaymentMethod {
   COD
   MOMO
+}
+
+enum ReservationStatus {
+  PENDING
+  RESERVED
+  FAILED
+  RELEASE_PENDING
+  RELEASED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  PROCESSING
+  PROCESSED
+  DEAD_LETTER
 }
 
 enum DiscountType {
@@ -584,20 +609,24 @@ model CartItem {
 // ============================================================
 
 model Order {
-  id              String        @id @db.Uuid
-  userId          String        @map("user_id") @db.Uuid
-  status          OrderStatus   @default(PENDING)
-  subtotal        Decimal       @db.Decimal(12, 0)
-  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(12, 0)
-  total           Decimal       @db.Decimal(12, 0)
-  paymentMethod   PaymentMethod @default(COD) @map("payment_method")
-  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
-  shippingAddress Json          @map("shipping_address")
-  couponId        String?       @map("coupon_id") @db.Uuid
-  note            String?
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz
+  id                   String            @id @db.Uuid
+  userId               String            @map("user_id") @db.Uuid
+  status               OrderStatus       @default(PENDING)
+  reservationStatus    ReservationStatus @default(PENDING) @map("reservation_status")
+  reservationExpiresAt DateTime?         @map("reservation_expires_at") @db.Timestamptz
+  cancellationReason   String?           @map("cancellation_reason")
+  subtotal             Decimal           @db.Decimal(12, 0)
+  discountAmount       Decimal           @default(0) @map("discount_amount") @db.Decimal(12, 0)
+  total                Decimal           @db.Decimal(12, 0)
+  paymentMethod        PaymentMethod     @default(COD) @map("payment_method")
+  paymentStatus        PaymentStatus     @default(PENDING) @map("payment_status")
+  paidAt               DateTime?         @map("paid_at") @db.Timestamptz
+  shippingAddress      Json              @map("shipping_address")
+  couponId             String?           @map("coupon_id") @db.Uuid
+  note                 String?
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt            DateTime?         @map("deleted_at") @db.Timestamptz
 
   user                  User                   @relation(fields: [userId], references: [id])
   coupon                Coupon?                @relation(fields: [couponId], references: [id])
@@ -610,6 +639,8 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([reservationStatus])
+  @@index([reservationExpiresAt])
   @@map("orders")
 }
 
@@ -656,11 +687,54 @@ model Payment {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order  Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refund PaymentRefund?
 
   @@index([providerOrderId])
   @@index([status])
   @@map("payments")
+}
+
+model PaymentRefund {
+  id                    String       @id @db.Uuid
+  paymentId             String       @unique @map("payment_id") @db.Uuid
+  provider              String       @default("momo")
+  amount                Decimal      @db.Decimal(12, 0)
+  providerTransId       String       @map("provider_trans_id")
+  providerRefundOrderId String       @unique @map("provider_refund_order_id")
+  requestId             String       @unique @map("request_id")
+  refundTransId         String?      @map("refund_trans_id")
+  status                RefundStatus @default(PENDING)
+  attempts              Int          @default(0)
+  lastError             String?      @map("last_error") @db.Text
+  completedAt           DateTime?    @map("completed_at") @db.Timestamptz
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("payment_refunds")
+}
+
+model OutboxMessage {
+  id            String       @id @db.Uuid
+  aggregateType String       @map("aggregate_type")
+  aggregateId   String       @map("aggregate_id") @db.Uuid
+  eventType     String       @map("event_type")
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  availableAt   DateTime     @default(now()) @map("available_at") @db.Timestamptz
+  publishedAt   DateTime?    @map("published_at") @db.Timestamptz
+  processedAt   DateTime?    @map("processed_at") @db.Timestamptz
+  lastError     String?      @map("last_error") @db.Text
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status, availableAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_messages")
 }
 
 // ============================================================
