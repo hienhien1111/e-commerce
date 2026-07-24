@@ -17,7 +17,9 @@ import {
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
+  ApiOperation,
   ApiTags,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/infrastructure/strategies/jwt.strategy';
@@ -32,6 +34,7 @@ import { AddCartItemDto } from '@/presentation/http/dtos/add-cart-item.dto';
 import { UpdateCartItemDto } from '@/presentation/http/dtos/update-cart-item.dto';
 import { ApplyCartCouponDto } from '@/presentation/http/dtos/apply-cart-coupon.dto';
 import { CartDto } from '@/presentation/http/dtos/cart.dto';
+import { ErrorResponseDto } from '@/presentation/http/dtos/error-response.dto';
 
 @ApiTags('Cart')
 @ApiCookieAuth('access_token')
@@ -50,7 +53,13 @@ export class CartController {
   }
 
   @Post('items')
+  @ApiOperation({
+    summary: 'Add a variant to cart',
+    description:
+      'Cart uniqueness is based on variantId, so variants of the same product remain separate lines.',
+  })
   @ApiCreatedResponse({ type: CartDto })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDto })
   addItem(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: AddCartItemDto,
@@ -99,6 +108,10 @@ export class CartController {
   @Post('coupon')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: CartDto })
+  @ApiOperation({
+    summary: 'Validate and apply coupon against current cart subtotal',
+  })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDto })
   applyCoupon(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: ApplyCartCouponDto,
