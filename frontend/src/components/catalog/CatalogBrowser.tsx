@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
-import { Category, formatVnd, Product, ProductPage } from '@/lib/catalog';
+import { Category, formatVnd } from '@/lib/catalog';
+import type { CatalogV2Product, CatalogV2ProductPage } from '@/lib/catalog-v2';
 import styles from './CatalogBrowser.module.css';
 
 function queryString(params: Record<string, string | undefined>): string {
@@ -16,10 +17,11 @@ function queryString(params: Record<string, string | undefined>): string {
   return encoded ? `?${encoded}` : '';
 }
 
-function primaryImage(product: Product): string | undefined {
+function primaryImage(product: CatalogV2Product): string | undefined {
   return (
-    product.images.find((image) => image.isPrimary)?.url ??
-    product.images[0]?.url
+    product.summary.primaryMediaUrl ??
+    product.media.find((image) => image.isPrimary)?.url ??
+    product.media[0]?.url
   );
 }
 
@@ -33,7 +35,7 @@ export function CatalogBrowser() {
   const maxPrice = searchParams.get('maxPrice') ?? '';
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<CatalogV2Product[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -86,7 +88,7 @@ export function CatalogBrowser() {
     if (filters.maxPrice) params.set('maxPrice', filters.maxPrice);
     params.set('limit', '20');
     void api
-      .get<ProductPage>(`v1/products?${params.toString()}`, {
+      .get<CatalogV2ProductPage>(`v2/products?${params.toString()}`, {
         skipAuth: true,
         signal: controller.signal,
       })
@@ -158,8 +160,8 @@ export function CatalogBrowser() {
     params.set('cursor', nextCursor);
     params.set('limit', '20');
     try {
-      const page = await api.get<ProductPage>(
-        `v1/products?${params.toString()}`,
+      const page = await api.get<CatalogV2ProductPage>(
+        `v2/products?${params.toString()}`,
         {
           skipAuth: true,
         },
@@ -298,23 +300,17 @@ export function CatalogBrowser() {
                         ) : (
                           <span aria-hidden="true">🛍️</span>
                         )}
-                        {product.stock === 0 && (
+                        {product.summary.availableQuantity === 0 && (
                           <span className={styles.outOfStock}>Hết hàng</span>
                         )}
                       </div>
                       <h3>{product.name}</h3>
                       <div className={styles.prices}>
                         <span className="price">
-                          {product.priceRange.min !== product.priceRange.max
-                            ? `Từ ${formatVnd(product.priceRange.min)}`
-                            : formatVnd(product.price)}
+                          {product.summary.priceMin !== product.summary.priceMax
+                            ? `Từ ${formatVnd(product.summary.priceMin)}`
+                            : formatVnd(product.summary.priceMin)}
                         </span>
-                        {product.comparePrice !== null &&
-                          product.comparePrice > product.price && (
-                            <span className="price-original">
-                              {formatVnd(product.comparePrice)}
-                            </span>
-                          )}
                       </div>
                     </Link>
                   );

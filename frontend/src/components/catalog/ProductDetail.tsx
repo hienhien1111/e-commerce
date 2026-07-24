@@ -1,17 +1,46 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { formatVnd, Product } from '@/lib/catalog';
+import { formatVnd } from '@/lib/catalog';
+import type {
+  CatalogV2Option,
+  CatalogV2Product,
+  CatalogV2Variant,
+} from '@/lib/catalog-v2';
 import { useCart } from '@/providers/CartProvider';
 import { useToast } from '@/providers/ToastProvider';
 import { useSession } from '@/providers/SessionProvider';
 import styles from './ProductDetail.module.css';
 
+const sellable = (variant: CatalogV2Variant) => variant.status === 'ACTIVE';
+
+function matchingVariant(
+  variants: CatalogV2Variant[],
+  options: CatalogV2Option[],
+  nextValueId: string,
+  changedOptionId: string,
+  selected: CatalogV2Variant | null,
+) {
+  return variants.find(
+    (variant) =>
+      sellable(variant) &&
+      options.every((option) => {
+        const expected =
+          option.id === changedOptionId
+            ? nextValueId
+            : selected?.optionValueIds.find((id) =>
+                option.values.some((value) => value.id === id),
+              );
+        return !expected || variant.optionValueIds.includes(expected);
+      }),
+  );
+}
+
 export function ProductDetail({ productId }: { productId: string }) {
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<CatalogV2Product | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
     null,
@@ -28,18 +57,21 @@ export function ProductDetail({ productId }: { productId: string }) {
 
   useEffect(() => {
     let active = true;
+    setError(null);
     void api
-      .get<Product>(`v1/products/${productId}`, { skipAuth: true })
+      .get<CatalogV2Product>(`v2/products/${productId}`, { skipAuth: true })
       .then((result) => {
         if (!active) return;
         setProduct(result);
-        const primaryIndex = result.images.findIndex(
-          (image) => image.isPrimary,
-        );
-        setSelectedImage(primaryIndex >= 0 ? primaryIndex : 0);
+        setSelectedImage(0);
         setSelectedVariantId(
-          result.variants.find((variant) => variant.isActive)?.id ?? null,
+          result.variants.find(
+            (variant) => sellable(variant) && variant.availableQuantity > 0,
+          )?.id ??
+            result.variants.find(sellable)?.id ??
+            null,
         );
+        setQuantity(1);
       })
       .catch(
         () => active && setError('Sản phẩm không tồn tại hoặc đã ngừng bán.'),
@@ -48,6 +80,18 @@ export function ProductDetail({ productId }: { productId: string }) {
       active = false;
     };
   }, [productId]);
+
+  const selectedVariant = useMemo(
+    () =>
+      product?.variants.find((variant) => variant.id === selectedVariantId) ??
+      product?.variants.find(sellable) ??
+      null,
+    [product, selectedVariantId],
+  );
+  const gallery =
+    selectedVariant && selectedVariant.media.length > 0
+      ? selectedVariant.media
+      : (product?.media ?? []);
 
   if (error) {
     return (
@@ -64,17 +108,28 @@ export function ProductDetail({ productId }: { productId: string }) {
       </main>
     );
 
-  const selectedVariant =
-    product.variants.find((variant) => variant.id === selectedVariantId) ??
-    product.variants.find((variant) => variant.isActive) ??
-    null;
-  const image = product.images[selectedImage];
-  const outOfStock = !selectedVariant || selectedVariant.stock === 0;
-  const effectiveImage = selectedVariant?.imageUrl ?? image?.url ?? null;
-  const effectivePrice = selectedVariant?.price ?? product.price;
-  const effectiveComparePrice =
-    selectedVariant?.comparePrice ?? product.comparePrice;
-  const effectiveStock = selectedVariant?.stock ?? product.stock;
+  const image = gallery[selectedImage] ?? gallery[0] ?? null;
+  const outOfStock =
+    !selectedVariant ||
+    !sellable(selectedVariant) ||
+    selectedVariant.availableQuantity === 0;
+  const effectivePrice = selectedVariant?.price ?? product.summary.priceMin;
+  const effectiveComparePrice = selectedVariant?.comparePrice ?? null;
+  const effectiveStock = selectedVariant?.availableQuantity ?? 0;
+
+  const selectValue = (option: CatalogV2Option, valueId: string) => {
+    const match = matchingVariant(
+      product.variants,
+      product.options,
+      valueId,
+      option.id,
+      selectedVariant,
+    );
+    if (!match) return;
+    setSelectedVariantId(match.id);
+    setSelectedImage(0);
+    setQuantity(1);
+  };
 
   const addToCart = async () => {
     if (!user) {
@@ -112,16 +167,16 @@ export function ProductDetail({ productId }: { productId: string }) {
       <div className={`container ${styles.detail}`}>
         <section className={styles.gallery}>
           <div className={styles.mainImage}>
-            {effectiveImage ? (
+            {image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt={product.name} src={effectiveImage} />
+              <img alt={product.name} src={image.url} />
             ) : (
               <span aria-hidden="true">🛍️</span>
             )}
           </div>
-          {product.images.length > 1 && (
+          {gallery.length > 1 && (
             <div className={styles.thumbnails}>
-              {product.images.map((item, index) => (
+              {gallery.map((item, index) => (
                 <button
                   aria-label={`Xem ảnh ${index + 1}`}
                   className={
@@ -156,7 +211,37 @@ export function ProductDetail({ productId }: { productId: string }) {
           <p className={outOfStock ? styles.stockEmpty : styles.stock}>
             {outOfStock ? 'Hết hàng' : `Còn ${effectiveStock} sản phẩm`}
           </p>
-          {product.hasVariants && (
+          {product.options.map((option) => (
+            <div className={styles.quantity} key={option.id}>
+              <span>{option.name}</span>
+              <div className={styles.variantChoices}>
+                {option.values.map((value) => {
+                  const candidate = matchingVariant(
+                    product.variants,
+                    product.options,
+                    value.id,
+                    option.id,
+                    selectedVariant,
+                  );
+                  const isSelected = selectedVariant?.optionValueIds.includes(
+                    value.id,
+                  );
+                  return (
+                    <button
+                      className={isSelected ? styles.selectedVariant : ''}
+                      disabled={!candidate || candidate.availableQuantity === 0}
+                      key={value.id}
+                      onClick={() => selectValue(option, value.id)}
+                      type="button"
+                    >
+                      {value.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {product.options.length === 0 && product.variants.length > 1 && (
             <div className={styles.quantity}>
               <span>Mẫu mã</span>
               <div className={styles.variantChoices}>
@@ -167,21 +252,18 @@ export function ProductDetail({ productId }: { productId: string }) {
                         ? styles.selectedVariant
                         : ''
                     }
-                    disabled={!variant.isActive || variant.stock === 0}
+                    disabled={
+                      !sellable(variant) || variant.availableQuantity === 0
+                    }
                     key={variant.id}
                     onClick={() => {
                       setSelectedVariantId(variant.id);
-                      if (variant.imageUrl) {
-                        const imageIndex = product.images.findIndex(
-                          (image) => image.id === variant.imageId,
-                        );
-                        if (imageIndex >= 0) setSelectedImage(imageIndex);
-                      }
+                      setSelectedImage(0);
                       setQuantity(1);
                     }}
                     type="button"
                   >
-                    {variant.label ?? 'Mặc định'}
+                    {variant.sku}
                   </button>
                 ))}
               </div>
