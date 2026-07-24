@@ -222,9 +222,9 @@ describe('Catalog E2E', () => {
     await request(app.getHttpServer())
       .patch(`/api/v1/products/${productId}/variants/${defaultVariant.id}`)
       .set('Cookie', adminCookie)
-      .send({ label: 'Đen - M', sku: 'TWS-BLACK-M' })
+      .send({ label: 'Đen - M' })
       .expect(200)
-      .expect((response) => expect(response.body.sku).toBe('TWS-BLACK-M'));
+      .expect((response) => expect(response.body.sku).toBe('TWS-001'));
     const created = await request(app.getHttpServer())
       .post(`/api/v1/products/${productId}/variants`)
       .set('Cookie', adminCookie)

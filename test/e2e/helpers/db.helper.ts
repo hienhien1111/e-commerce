@@ -9,12 +9,21 @@ export async function cleanDatabase(app: INestApplication): Promise<void> {
   const prisma = app.get(PrismaService);
 
   await prisma.$transaction([
+    prisma.inventoryMovement.deleteMany(),
+    prisma.inventoryReservation.deleteMany(),
+    prisma.inventoryBalance.deleteMany(),
     prisma.couponUsage.deleteMany(),
     prisma.payment.deleteMany(),
     prisma.orderItem.deleteMany(),
     prisma.order.deleteMany(),
     prisma.cartItem.deleteMany(),
     prisma.cart.deleteMany(),
+    prisma.productVariantMedia.deleteMany(),
+    prisma.productVariantOptionValue.deleteMany(),
+    prisma.productOptionValue.deleteMany(),
+    prisma.productOption.deleteMany(),
+    prisma.productCatalogProjection.deleteMany(),
+    prisma.productMedia.deleteMany(),
     prisma.productImage.deleteMany(),
     prisma.product.deleteMany(),
     prisma.category.deleteMany(),
