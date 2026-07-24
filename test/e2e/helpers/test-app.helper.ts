@@ -17,6 +17,7 @@ import { InMemoryFileStorage } from './in-memory-file-storage';
 import { InMemoryEmail } from './in-memory-email';
 import { PAYMENT_GATEWAY_PORT } from '@/application/payment/ports/payment.gateway.port.token';
 import { InMemoryMomoGateway } from './in-memory-momo-gateway';
+import { ApplicationErrorFilter } from '@/presentation/http/filters/application-error.filter';
 
 /**
  * Creates and initialises a full NestJS application for E2E testing.
@@ -41,6 +42,7 @@ export async function createTestApp(): Promise<INestApplication> {
   app.setGlobalPrefix('api', { exclude: ['/'] });
   app.enableVersioning({ type: VersioningType.URI });
   app.useGlobalPipes(new ValidationPipe(validationOptions));
+  app.useGlobalFilters(new ApplicationErrorFilter());
   app.useGlobalInterceptors(
     new ResolvePromisesInterceptor(),
     new ClassSerializerInterceptor(app.get(Reflector)),
