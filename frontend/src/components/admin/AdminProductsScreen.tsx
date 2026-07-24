@@ -7,6 +7,12 @@ import type { AdminProductPage } from '@/lib/admin';
 import type { Category, Product, ProductVariant } from '@/lib/catalog';
 import { formatVnd } from '@/lib/catalog';
 import { useToast } from '@/providers/ToastProvider';
+import {
+  readUrlFilter,
+  useAdminFilterUrl,
+  useDebouncedValue,
+} from '@/hooks/useAdminFilters';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import styles from './AdminScreens.module.css';
 
 type ProductForm = {
@@ -29,6 +35,15 @@ type VariantForm = {
   stock: string;
   isActive: boolean;
   imageId: string;
+};
+
+type CreateProductVariantPayload = {
+  label: string;
+  sku: string;
+  price: number;
+  comparePrice: number | null;
+  stock: number;
+  isActive: boolean;
 };
 
 const emptyVariantForm = (): VariantForm => ({
@@ -81,27 +96,76 @@ const primaryUrl = (product: Product) =>
   product.images.find((image) => image.isPrimary)?.url ??
   product.images[0]?.url;
 
+const variantPayload = (variant: VariantForm): CreateProductVariantPayload => ({
+  label: variant.label.trim(),
+  sku: variant.sku.trim(),
+  price: Number(variant.price),
+  comparePrice: variant.comparePrice ? Number(variant.comparePrice) : null,
+  stock: Number(variant.stock),
+  isActive: variant.isActive,
+});
+
+const variantFormError = (
+  variant: VariantForm,
+  options: { requireLabel: boolean },
+): string | null => {
+  const data = variantPayload(variant);
+  if (options.requireLabel && !data.label) {
+    return 'Mỗi biến thể cần có nhãn để khách hàng phân biệt.';
+  }
+  if (!data.sku) return 'SKU của biến thể là bắt buộc.';
+  if (!Number.isInteger(data.price) || data.price < 0) {
+    return 'Giá biến thể phải là số nguyên không âm.';
+  }
+  if (!Number.isInteger(data.stock) || data.stock < 0) {
+    return 'Tồn kho biến thể phải là số nguyên không âm.';
+  }
+  if (
+    data.comparePrice !== null &&
+    (!Number.isInteger(data.comparePrice) || data.comparePrice < data.price)
+  ) {
+    return 'Giá so sánh phải là số nguyên và không nhỏ hơn giá bán.';
+  }
+  return null;
+};
+
 export function AdminProductsScreen() {
   const toast = useToast();
   const [page, setPage] = useState<AdminProductPage | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [search, setSearch] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [active, setActive] = useState('');
+  const [search, setSearch] = useState(() => readUrlFilter('search'));
+  const [categoryId, setCategoryId] = useState(() =>
+    readUrlFilter('categoryId'),
+  );
+  const [active, setActive] = useState(() => readUrlFilter('isActive'));
   const [modalProduct, setModalProduct] = useState<Product | null | undefined>(
     undefined,
   );
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [files, setFiles] = useState<File[]>([]);
   const [variantForm, setVariantForm] = useState<VariantForm>(emptyVariantForm);
+  const [creationVariants, setCreationVariants] = useState<VariantForm[]>([]);
+  const [editingCreationVariant, setEditingCreationVariant] = useState<
+    number | null
+  >(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const editor = useDialogFocus<HTMLFormElement>(
+    modalProduct !== undefined,
+    () => setModalProduct(undefined),
+  );
+  const debouncedSearch = useDebouncedValue(search);
+  useAdminFilterUrl({
+    categoryId,
+    isActive: active,
+    search: debouncedSearch.trim(),
+  });
 
   const load = useCallback(
     async (cursor?: string, append = false) => {
       setError(null);
       const params = new URLSearchParams({ limit: '20' });
-      if (search.trim()) params.set('search', search.trim());
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (categoryId) params.set('categoryId', categoryId);
       if (active) params.set('isActive', active);
       if (cursor) params.set('cursor', cursor);
@@ -123,7 +187,7 @@ export function AdminProductsScreen() {
         );
       }
     },
-    [search, categoryId, active],
+    [debouncedSearch, categoryId, active],
   );
 
   useEffect(() => {
@@ -141,12 +205,16 @@ export function AdminProductsScreen() {
     setFiles([]);
     setModalProduct(null);
     setVariantForm(emptyVariantForm());
+    setCreationVariants([]);
+    setEditingCreationVariant(null);
   };
   const openEdit = (product: Product) => {
     setForm(toForm(product));
     setFiles([]);
     setModalProduct(product);
     setVariantForm(emptyVariantForm());
+    setCreationVariants([]);
+    setEditingCreationVariant(null);
   };
   const setField = <K extends keyof ProductForm>(
     key: K,
@@ -162,6 +230,19 @@ export function AdminProductsScreen() {
     const isVariantProduct = modalProduct?.variants.some(
       (variant) => variant.label !== null,
     );
+    if (modalProduct === null && creationVariants.length > 0) {
+      const firstVariant = variantPayload(creationVariants[0]);
+      return {
+        ...base,
+        // v1 still requires these legacy projection fields. The API derives
+        // their stored values from the submitted variants atomically.
+        price: firstVariant.price,
+        comparePrice: firstVariant.comparePrice,
+        stock: firstVariant.stock,
+        sku: firstVariant.sku,
+        variants: creationVariants.map(variantPayload),
+      };
+    }
     return isVariantProduct
       ? base
       : {
@@ -261,6 +342,13 @@ export function AdminProductsScreen() {
 
   const saveVariant = async () => {
     if (!modalProduct) return;
+    const validation = variantFormError(variantForm, {
+      requireLabel: !variantForm.id,
+    });
+    if (validation) {
+      setError(validation);
+      return;
+    }
     setBusy(true);
     setError(null);
     const payload = {
@@ -308,6 +396,63 @@ export function AdminProductsScreen() {
     }
   };
 
+  const queueCreationVariant = () => {
+    const validation = variantFormError(variantForm, { requireLabel: true });
+    if (validation) {
+      setError(validation);
+      return;
+    }
+    const candidate = variantPayload(variantForm);
+    const conflicts = creationVariants.some((variant, index) => {
+      if (index === editingCreationVariant) return false;
+      const existing = variantPayload(variant);
+      return (
+        existing.label.toLocaleLowerCase() ===
+          candidate.label.toLocaleLowerCase() ||
+        existing.sku.toLocaleLowerCase() === candidate.sku.toLocaleLowerCase()
+      );
+    });
+    if (conflicts) {
+      setError('Nhãn và SKU phải khác nhau giữa các biến thể.');
+      return;
+    }
+    setCreationVariants((current) =>
+      editingCreationVariant === null
+        ? [...current, { ...variantForm, id: null, imageId: '' }]
+        : current.map((variant, index) =>
+            index === editingCreationVariant
+              ? { ...variantForm, id: null, imageId: '' }
+              : variant,
+          ),
+    );
+    setVariantForm(emptyVariantForm());
+    setEditingCreationVariant(null);
+    setError(null);
+  };
+
+  const editCreationVariant = (index: number) => {
+    setVariantForm({ ...creationVariants[index], imageId: '' });
+    setEditingCreationVariant(index);
+    setError(null);
+  };
+
+  const removeCreationVariant = (index: number) => {
+    setCreationVariants((current) =>
+      current.filter((_, currentIndex) => currentIndex !== index),
+    );
+    if (editingCreationVariant === index) {
+      setVariantForm(emptyVariantForm());
+      setEditingCreationVariant(null);
+    } else if (
+      editingCreationVariant !== null &&
+      editingCreationVariant > index
+    ) {
+      setEditingCreationVariant((current) =>
+        current === null ? null : current - 1,
+      );
+    }
+  };
+
   const removeVariant = async (variant: ProductVariant) => {
     if (
       !modalProduct ||
@@ -335,6 +480,8 @@ export function AdminProductsScreen() {
   const isVariantProduct = Boolean(
     modalProduct?.variants.some((variant) => variant.label !== null),
   );
+  const isCreatingVariantProduct =
+    modalProduct === null && creationVariants.length > 0;
 
   return (
     <main className={styles.page}>
@@ -357,12 +504,14 @@ export function AdminProductsScreen() {
           }}
         >
           <input
+            aria-label="Tìm sản phẩm"
             className="form-input"
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm theo tên"
             value={search}
           />
           <select
+            aria-label="Danh mục sản phẩm"
             className="form-input"
             onChange={(event) => setCategoryId(event.target.value)}
             value={categoryId}
@@ -375,6 +524,7 @@ export function AdminProductsScreen() {
             ))}
           </select>
           <select
+            aria-label="Trạng thái sản phẩm"
             className="form-input"
             onChange={(event) => setActive(event.target.value)}
             value={active}
@@ -383,9 +533,7 @@ export function AdminProductsScreen() {
             <option value="true">Đang bật</option>
             <option value="false">Đang ẩn</option>
           </select>
-          <button className="btn btn-outline" type="submit">
-            Lọc
-          </button>
+          <span className={styles.muted}>Bộ lọc tự động cập nhật</span>
         </form>
         {error && <p className={styles.error}>{error}</p>}
         {!page ? (
@@ -485,8 +633,18 @@ export function AdminProductsScreen() {
       </div>
       {modalProduct !== undefined && (
         <div className={styles.modalBackdrop} role="presentation">
-          <form className={styles.modal} onSubmit={save}>
-            <h2>{modalProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}</h2>
+          <form
+            aria-labelledby="product-editor-title"
+            aria-modal="true"
+            className={styles.modal}
+            onKeyDown={editor.onKeyDown}
+            onSubmit={save}
+            ref={editor.ref}
+            role="dialog"
+          >
+            <h2 id="product-editor-title">
+              {modalProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
+            </h2>
             {error && <p className={styles.error}>{error}</p>}
             <div className={styles.modalGrid}>
               <label className="form-group wide">
@@ -508,7 +666,7 @@ export function AdminProductsScreen() {
                   value={form.description}
                 />
               </label>
-              {!isVariantProduct && (
+              {!isVariantProduct && !isCreatingVariantProduct && (
                 <>
                   <label className="form-group">
                     <span className="form-label">Giá VND *</span>
@@ -624,19 +782,23 @@ export function AdminProductsScreen() {
                   </div>
                 </div>
               ) : null}
-              {modalProduct && (
-                <div className={`wide ${styles.variantPanel}`}>
-                  <div className={styles.variantHeading}>
-                    <span className="form-label">Mẫu mã / biến thể</span>
-                    {modalProduct.variants.length > 0 && (
-                      <small>
-                        Đổi “Mặc định” thành mẫu đầu tiên trước khi thêm mẫu
-                        mới.
-                      </small>
-                    )}
-                  </div>
-                  <div className={styles.variantList}>
-                    {modalProduct.variants.map((variant) => (
+              <div className={`wide ${styles.variantPanel}`}>
+                <div className={styles.variantHeading}>
+                  <span className="form-label">Mẫu mã / biến thể</span>
+                  {modalProduct ? (
+                    <small>
+                      Đổi “Mặc định” thành mẫu đầu tiên trước khi thêm mẫu mới.
+                    </small>
+                  ) : (
+                    <small>
+                      Thêm các mẫu mã trước khi lưu. Sản phẩm và toàn bộ mẫu mã
+                      sẽ được tạo trong một thao tác.
+                    </small>
+                  )}
+                </div>
+                <div className={styles.variantList}>
+                  {modalProduct ? (
+                    modalProduct.variants.map((variant) => (
                       <div className={styles.variantRow} key={variant.id}>
                         <span>{variant.label ?? 'Mặc định'}</span>
                         <span>{variant.sku}</span>
@@ -655,74 +817,114 @@ export function AdminProductsScreen() {
                           Xóa
                         </button>
                       </div>
-                    ))}
-                  </div>
-                  <div className={styles.variantForm}>
-                    <input
-                      className="form-input"
-                      onChange={(event) =>
-                        setVariantForm((current) => ({
-                          ...current,
-                          label: event.target.value,
-                        }))
-                      }
-                      placeholder="Nhãn, ví dụ: Đen - L"
-                      value={variantForm.label}
-                    />
-                    <input
-                      className="form-input"
-                      onChange={(event) =>
-                        setVariantForm((current) => ({
-                          ...current,
-                          sku: event.target.value,
-                        }))
-                      }
-                      placeholder="SKU *"
-                      required
-                      value={variantForm.sku}
-                    />
-                    <input
-                      className="form-input"
-                      min="0"
-                      onChange={(event) =>
-                        setVariantForm((current) => ({
-                          ...current,
-                          price: event.target.value,
-                        }))
-                      }
-                      placeholder="Giá *"
-                      required
-                      type="number"
-                      value={variantForm.price}
-                    />
-                    <input
-                      className="form-input"
-                      min="0"
-                      onChange={(event) =>
-                        setVariantForm((current) => ({
-                          ...current,
-                          comparePrice: event.target.value,
-                        }))
-                      }
-                      placeholder="Giá so sánh"
-                      type="number"
-                      value={variantForm.comparePrice}
-                    />
-                    <input
-                      className="form-input"
-                      min="0"
-                      onChange={(event) =>
-                        setVariantForm((current) => ({
-                          ...current,
-                          stock: event.target.value,
-                        }))
-                      }
-                      placeholder="Tồn kho *"
-                      required
-                      type="number"
-                      value={variantForm.stock}
-                    />
+                    ))
+                  ) : creationVariants.length > 0 ? (
+                    creationVariants.map((variant, index) => (
+                      <div
+                        className={styles.variantRow}
+                        key={`${variant.sku}-${index}`}
+                      >
+                        <span>{variant.label}</span>
+                        <span>{variant.sku}</span>
+                        <span>{formatVnd(Number(variant.price))}</span>
+                        <span>Tồn: {variant.stock}</span>
+                        <button
+                          onClick={() => editCreationVariant(index)}
+                          type="button"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => removeCreationVariant(index)}
+                          type="button"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className={styles.variantEmpty}>
+                      Chưa có biến thể. Bỏ qua phần này để tạo một sản phẩm đơn
+                      với giá và tồn kho ở trên.
+                    </p>
+                  )}
+                </div>
+                {!modalProduct && (
+                  <p className={styles.variantHint}>
+                    Ảnh chung được tải lên cùng sản phẩm. Bạn có thể gán ảnh
+                    riêng cho từng biến thể trong màn hình sửa sau khi lưu.
+                  </p>
+                )}
+                <div className={styles.variantForm}>
+                  <input
+                    aria-label="Nhãn biến thể"
+                    className="form-input"
+                    onChange={(event) =>
+                      setVariantForm((current) => ({
+                        ...current,
+                        label: event.target.value,
+                      }))
+                    }
+                    placeholder="Nhãn, ví dụ: Đen - L"
+                    value={variantForm.label}
+                  />
+                  <input
+                    aria-label="SKU biến thể"
+                    className="form-input"
+                    onChange={(event) =>
+                      setVariantForm((current) => ({
+                        ...current,
+                        sku: event.target.value,
+                      }))
+                    }
+                    placeholder="SKU *"
+                    value={variantForm.sku}
+                  />
+                  <input
+                    aria-label="Giá biến thể"
+                    className="form-input"
+                    min="0"
+                    onChange={(event) =>
+                      setVariantForm((current) => ({
+                        ...current,
+                        price: event.target.value,
+                      }))
+                    }
+                    placeholder="Giá *"
+                    type="number"
+                    value={variantForm.price}
+                  />
+                  <input
+                    aria-label="Giá so sánh biến thể"
+                    className="form-input"
+                    min="0"
+                    onChange={(event) =>
+                      setVariantForm((current) => ({
+                        ...current,
+                        comparePrice: event.target.value,
+                      }))
+                    }
+                    placeholder="Giá so sánh"
+                    type="number"
+                    value={variantForm.comparePrice}
+                  />
+                  <input
+                    aria-label="Tồn kho biến thể"
+                    className="form-input"
+                    min="0"
+                    onChange={(event) =>
+                      setVariantForm((current) => ({
+                        ...current,
+                        stock: event.target.value,
+                      }))
+                    }
+                    placeholder="Tồn kho *"
+                    type="number"
+                    value={variantForm.stock}
+                  />
+                  {modalProduct && (
                     <select
+                      aria-label="Ảnh biến thể"
                       className="form-input"
                       onChange={(event) =>
                         setVariantForm((current) => ({
@@ -739,39 +941,50 @@ export function AdminProductsScreen() {
                         </option>
                       ))}
                     </select>
-                    <label className={styles.check}>
-                      <input
-                        checked={variantForm.isActive}
-                        onChange={(event) =>
-                          setVariantForm((current) => ({
-                            ...current,
-                            isActive: event.target.checked,
-                          }))
-                        }
-                        type="checkbox"
-                      />
-                      Bán
-                    </label>
+                  )}
+                  <label className={styles.check}>
+                    <input
+                      checked={variantForm.isActive}
+                      onChange={(event) =>
+                        setVariantForm((current) => ({
+                          ...current,
+                          isActive: event.target.checked,
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    Bán
+                  </label>
+                  <button
+                    className="btn btn-outline"
+                    disabled={busy}
+                    onClick={() =>
+                      modalProduct ? void saveVariant() : queueCreationVariant()
+                    }
+                    type="button"
+                  >
+                    {modalProduct
+                      ? variantForm.id
+                        ? 'Cập nhật mẫu'
+                        : 'Thêm mẫu'
+                      : editingCreationVariant === null
+                        ? 'Thêm vào danh sách'
+                        : 'Cập nhật danh sách'}
+                  </button>
+                  {(variantForm.id || editingCreationVariant !== null) && (
                     <button
-                      className="btn btn-outline"
-                      disabled={busy}
-                      onClick={() => void saveVariant()}
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        setVariantForm(emptyVariantForm());
+                        setEditingCreationVariant(null);
+                      }}
                       type="button"
                     >
-                      {variantForm.id ? 'Cập nhật mẫu' : 'Thêm mẫu'}
+                      Hủy sửa
                     </button>
-                    {variantForm.id && (
-                      <button
-                        className="btn btn-ghost"
-                        onClick={() => setVariantForm(emptyVariantForm())}
-                        type="button"
-                      >
-                        Hủy sửa
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
             <div className={styles.modalFooter}>
               <button

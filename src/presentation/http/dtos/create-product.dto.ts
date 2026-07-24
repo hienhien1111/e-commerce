@@ -1,7 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsBoolean,
+  IsArray,
   IsInt,
   IsOptional,
   IsString,
@@ -10,7 +13,9 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { CreateProductVariantDto } from './create-product-variant.dto';
 
 const MAX_VND_PRICE = 999_999_999_999;
 const trimString = ({ value }: { value: unknown }) =>
@@ -69,4 +74,18 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    type: () => CreateProductVariantDto,
+    isArray: true,
+    description:
+      'Create all sellable variants atomically with the product. Leave empty for one default variant.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => CreateProductVariantDto)
+  variants?: CreateProductVariantDto[];
 }
