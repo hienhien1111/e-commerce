@@ -5,6 +5,12 @@ import { ApiError, api } from '@/lib/api';
 import type { Coupon } from '@/lib/admin';
 import { formatVnd } from '@/lib/catalog';
 import { useToast } from '@/providers/ToastProvider';
+import {
+  readUrlFilter,
+  useAdminFilterUrl,
+  useDebouncedValue,
+} from '@/hooks/useAdminFilters';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import styles from './AdminScreens.module.css';
 
 type CouponForm = {
@@ -42,12 +48,23 @@ const toForm = (coupon: Coupon): CouponForm => ({
 export function AdminCouponsScreen() {
   const toast = useToast();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [search, setSearch] = useState(() => readUrlFilter('search'));
+  const [active, setActive] = useState(() => readUrlFilter('isActive'));
   const [modalCoupon, setModalCoupon] = useState<Coupon | null | undefined>(
     undefined,
   );
   const [form, setForm] = useState<CouponForm>(blank);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const editor = useDialogFocus<HTMLFormElement>(
+    modalCoupon !== undefined,
+    () => setModalCoupon(undefined),
+  );
+  const debouncedSearch = useDebouncedValue(search);
+  useAdminFilterUrl({
+    isActive: active,
+    search: debouncedSearch.trim(),
+  });
   const load = useCallback(async () => {
     try {
       setCoupons(await api.get<Coupon[]>('v1/coupons'));
@@ -60,6 +77,12 @@ export function AdminCouponsScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+  const normalizedSearch = debouncedSearch.trim().toLocaleUpperCase('vi');
+  const visibleCoupons = coupons.filter(
+    (coupon) =>
+      (!normalizedSearch || coupon.code.includes(normalizedSearch)) &&
+      (!active || String(coupon.isActive) === active),
+  );
   const set = <K extends keyof CouponForm>(key: K, value: CouponForm[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
   const open = (coupon?: Coupon) => {
@@ -127,8 +150,27 @@ export function AdminCouponsScreen() {
             Thêm coupon
           </button>
         </div>
+        <div className={`card ${styles.panel} ${styles.filters}`}>
+          <input
+            aria-label="Tìm coupon"
+            className="form-input"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Tìm theo mã coupon"
+            value={search}
+          />
+          <select
+            aria-label="Trạng thái coupon"
+            className="form-input"
+            onChange={(event) => setActive(event.target.value)}
+            value={active}
+          >
+            <option value="">Mọi trạng thái</option>
+            <option value="true">Đang bật</option>
+            <option value="false">Đã tắt</option>
+          </select>
+        </div>
         {error && <p className={styles.error}>{error}</p>}
-        {!coupons.length ? (
+        {!visibleCoupons.length ? (
           <div className={`card ${styles.empty}`}>Chưa có coupon.</div>
         ) : (
           <div className={`card ${styles.panel} ${styles.tableWrap}`}>
@@ -144,7 +186,7 @@ export function AdminCouponsScreen() {
                 </tr>
               </thead>
               <tbody>
-                {coupons.map((coupon) => (
+                {visibleCoupons.map((coupon) => (
                   <tr key={coupon.id}>
                     <td>
                       <b>{coupon.code}</b>
@@ -197,8 +239,18 @@ export function AdminCouponsScreen() {
       </div>
       {modalCoupon !== undefined && (
         <div className={styles.modalBackdrop} role="presentation">
-          <form className={styles.modal} onSubmit={save}>
-            <h2>{modalCoupon ? 'Sửa coupon' : 'Thêm coupon'}</h2>
+          <form
+            aria-labelledby="coupon-editor-title"
+            aria-modal="true"
+            className={styles.modal}
+            onKeyDown={editor.onKeyDown}
+            onSubmit={save}
+            ref={editor.ref}
+            role="dialog"
+          >
+            <h2 id="coupon-editor-title">
+              {modalCoupon ? 'Sửa coupon' : 'Thêm coupon'}
+            </h2>
             {error && <p className={styles.error}>{error}</p>}
             <div className={styles.modalGrid}>
               <label className="form-group">

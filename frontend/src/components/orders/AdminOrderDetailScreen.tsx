@@ -9,6 +9,8 @@ import {
   Order,
   orderStatusLabel,
   paymentMethodLabel,
+  paymentStatusLabel,
+  reservationStatusLabel,
   statusClass,
 } from '@/lib/order';
 import { OrderItems, OrderTotals } from './OrderItems';
@@ -66,6 +68,16 @@ function AdminOrderDetailContent({ orderId }: { orderId: string }) {
       </main>
     );
   const following = nextStatus[order.status];
+  const timeline = [
+    'PENDING',
+    'CONFIRMED',
+    'PROCESSING',
+    'SHIPPED',
+    'DELIVERED',
+  ] as const;
+  const currentTimelineIndex = timeline.indexOf(
+    order.status === 'CANCELLED' ? 'PENDING' : order.status,
+  );
   return (
     <main className={styles.page}>
       <div className="container">
@@ -93,13 +105,39 @@ function AdminOrderDetailContent({ orderId }: { orderId: string }) {
               <span>
                 Thanh toán:{' '}
                 <strong>
-                  {paymentMethodLabel[order.paymentMethod]} · {order.paymentStatus}
+                  {paymentMethodLabel[order.paymentMethod]} ·{' '}
+                  {paymentStatusLabel[order.paymentStatus]}
                 </strong>
               </span>
             </div>
+            <ol
+              className={styles.detailTimeline}
+              aria-label="Tiến trình đơn hàng"
+            >
+              {timeline.map((item, index) => (
+                <li
+                  className={
+                    order.status !== 'CANCELLED' &&
+                    index <= currentTimelineIndex
+                      ? styles.timelineComplete
+                      : ''
+                  }
+                  key={item}
+                >
+                  <i aria-hidden="true" />
+                  <span>{orderStatusLabel[item]}</span>
+                </li>
+              ))}
+              {order.status === 'CANCELLED' && (
+                <li className={styles.timelineCancelled}>
+                  <i aria-hidden="true" />
+                  <span>Đã hủy</span>
+                </li>
+              )}
+            </ol>
             <OrderItems order={order} />
           </section>
-          <aside className={`card ${styles.card}`}>
+          <aside className={`card ${styles.card} ${styles.stickyActionPanel}`}>
             <h2>Giao hàng</h2>
             <address className={styles.address}>
               <strong>{order.shippingAddress.fullName}</strong>
@@ -113,6 +151,35 @@ function AdminOrderDetailContent({ orderId }: { orderId: string }) {
               </span>
             </address>
             <OrderTotals order={order} />
+            <section className={styles.paymentPanel}>
+              <h2>Thanh toán & giữ hàng</h2>
+              <dl>
+                <div>
+                  <dt>Trạng thái thanh toán</dt>
+                  <dd>{paymentStatusLabel[order.paymentStatus]}</dd>
+                </div>
+                <div>
+                  <dt>Reservation</dt>
+                  <dd>{reservationStatusLabel[order.reservationStatus]}</dd>
+                </div>
+                <div>
+                  <dt>Đã thu lúc</dt>
+                  <dd>
+                    {order.paidAt
+                      ? new Intl.DateTimeFormat('vi-VN', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }).format(new Date(order.paidAt))
+                      : 'Chưa thu'}
+                  </dd>
+                </div>
+              </dl>
+              {order.cancellationReason && (
+                <p className={styles.notice}>
+                  Lý do hủy: {order.cancellationReason}
+                </p>
+              )}
+            </section>
             <div className={styles.actions}>
               {following && (
                 <button

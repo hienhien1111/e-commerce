@@ -4,6 +4,12 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ApiError, api } from '@/lib/api';
 import type { Category } from '@/lib/catalog';
 import { useToast } from '@/providers/ToastProvider';
+import {
+  readUrlFilter,
+  useAdminFilterUrl,
+  useDebouncedValue,
+} from '@/hooks/useAdminFilters';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import styles from './AdminScreens.module.css';
 
 type CategoryForm = {
@@ -31,7 +37,8 @@ const toForm = (category: Category): CategoryForm => ({
 export function AdminCategoriesScreen() {
   const toast = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [active, setActive] = useState('');
+  const [search, setSearch] = useState(() => readUrlFilter('search'));
+  const [active, setActive] = useState(() => readUrlFilter('isActive'));
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     null,
   );
@@ -41,6 +48,15 @@ export function AdminCategoriesScreen() {
   const [form, setForm] = useState<CategoryForm>(blank);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const editor = useDialogFocus<HTMLFormElement>(
+    modalCategory !== undefined,
+    () => setModalCategory(undefined),
+  );
+  const debouncedSearch = useDebouncedValue(search);
+  useAdminFilterUrl({
+    isActive: active,
+    search: debouncedSearch.trim(),
+  });
   const load = useCallback(async () => {
     const params = active ? `?isActive=${active}` : '';
     try {
@@ -54,6 +70,14 @@ export function AdminCategoriesScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+  const normalizedSearch = debouncedSearch.trim().toLocaleLowerCase('vi');
+  const visibleCategories = normalizedSearch
+    ? categories.filter(
+        (category) =>
+          category.name.toLocaleLowerCase('vi').includes(normalizedSearch) ||
+          category.slug.toLocaleLowerCase('vi').includes(normalizedSearch),
+      )
+    : categories;
   const roots = categories.filter((category) => category.parentId === null);
   const set = <K extends keyof CategoryForm>(key: K, value: CategoryForm[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -129,7 +153,15 @@ export function AdminCategoriesScreen() {
           </button>
         </div>
         <div className={`card ${styles.panel} ${styles.filters}`}>
+          <input
+            aria-label="Tìm danh mục"
+            className="form-input"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Tìm theo tên hoặc slug"
+            value={search}
+          />
           <select
+            aria-label="Trạng thái danh mục"
             className="form-input"
             onChange={(event) => setActive(event.target.value)}
             value={active}
@@ -152,14 +184,14 @@ export function AdminCategoriesScreen() {
               </tr>
             </thead>
             <tbody>
-              {categories.length === 0 ? (
+              {visibleCategories.length === 0 ? (
                 <tr>
                   <td className={styles.empty} colSpan={5}>
                     Chưa có danh mục.
                   </td>
                 </tr>
               ) : (
-                categories.map((category) => (
+                visibleCategories.map((category) => (
                   <tr
                     aria-selected={selectedCategoryId === category.id}
                     className={`${styles.categoryRow} ${
@@ -215,8 +247,18 @@ export function AdminCategoriesScreen() {
       </div>
       {modalCategory !== undefined && (
         <div className={styles.modalBackdrop} role="presentation">
-          <form className={styles.modal} onSubmit={save}>
-            <h2>{modalCategory ? 'Sửa danh mục' : 'Thêm danh mục'}</h2>
+          <form
+            aria-labelledby="category-editor-title"
+            aria-modal="true"
+            className={styles.modal}
+            onKeyDown={editor.onKeyDown}
+            onSubmit={save}
+            ref={editor.ref}
+            role="dialog"
+          >
+            <h2 id="category-editor-title">
+              {modalCategory ? 'Sửa danh mục' : 'Thêm danh mục'}
+            </h2>
             {error && <p className={styles.error}>{error}</p>}
             <div className={styles.modalGrid}>
               <label className="form-group wide">

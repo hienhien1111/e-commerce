@@ -31,7 +31,9 @@ export function AdminDashboardScreen() {
         <div className={styles.heading}>
           <div>
             <h1>Dashboard</h1>
-            <p className={styles.muted}>Tổng quan vận hành cửa hàng.</p>
+            <p className={styles.muted}>
+              Doanh thu đã thu và các việc cần xử lý ngay.
+            </p>
           </div>
         </div>
         {error && <p className={styles.error}>{error}</p>}
@@ -41,22 +43,49 @@ export function AdminDashboardScreen() {
           <>
             <section className={styles.stats}>
               <article className={`card ${styles.stat}`}>
-                <span>Sản phẩm</span>
-                <strong>{data.totalProducts}</strong>
+                <span>Doanh thu đã thu</span>
+                <strong>{formatVnd(data.totalRevenue)}</strong>
               </article>
               <article className={`card ${styles.stat}`}>
-                <span>Đơn hàng</span>
-                <strong>{data.totalOrders}</strong>
-              </article>
-              <article className={`card ${styles.stat}`}>
-                <span>Doanh thu hôm nay</span>
+                <span>Đã thu hôm nay</span>
                 <strong>{formatVnd(data.revenueToday)}</strong>
               </article>
               <article className={`card ${styles.stat}`}>
-                <span>Đơn chờ xử lý</span>
+                <span>Đơn cần xử lý</span>
                 <strong>{data.pendingOrders}</strong>
               </article>
+              <article className={`card ${styles.stat}`}>
+                <span>Reservation lỗi</span>
+                <strong>{data.reservationFailures}</strong>
+              </article>
+              <article className={`card ${styles.stat}`}>
+                <span>Hoàn tiền đang chờ</span>
+                <strong>{data.refundPending}</strong>
+              </article>
+              <article className={`card ${styles.stat}`}>
+                <span>Hoàn tiền lỗi</span>
+                <strong>{data.refundFailed}</strong>
+              </article>
+              <article className={`card ${styles.stat}`}>
+                <span>Tổng đơn hàng</span>
+                <strong>{data.totalOrders}</strong>
+              </article>
+              <article className={`card ${styles.stat}`}>
+                <span>Sản phẩm</span>
+                <strong>{data.totalProducts}</strong>
+              </article>
             </section>
+            {(data.reservationFailures > 0 || data.refundFailed > 0) && (
+              <section className={styles.attentionPanel} role="status">
+                <div>
+                  <strong>Có tác vụ cần kiểm tra</strong>
+                  <p>Reservation hoặc hoàn tiền đã vượt số lần thử tự động.</p>
+                </div>
+                <Link className="btn btn-primary" href="/admin/operations">
+                  Mở trung tâm vận hành
+                </Link>
+              </section>
+            )}
             <section className={`card ${styles.panel}`}>
               <h2>5 đơn gần nhất</h2>
               <div className={styles.recent}>
@@ -80,8 +109,8 @@ export function AdminDashboardScreen() {
                 )}
               </div>
               <p className={styles.muted}>
-                Tổng doanh thu chưa hủy: {formatVnd(data.totalRevenue)} ·{' '}
-                {data.totalUsers} khách hàng.
+                Doanh thu chỉ gồm đơn đã thanh toán · {data.totalUsers} khách
+                hàng.
               </p>
             </section>
           </>

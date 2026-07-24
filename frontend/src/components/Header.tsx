@@ -35,7 +35,9 @@ export function Header() {
       setConfirmLogout(false);
       router.replace('/');
     } catch {
-      toast.error('Không thể đăng xuất lúc này. Phiên của bạn vẫn được giữ nguyên.');
+      toast.error(
+        'Không thể đăng xuất lúc này. Phiên của bạn vẫn được giữ nguyên.',
+      );
     } finally {
       setLoggingOut(false);
     }

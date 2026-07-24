@@ -33,8 +33,33 @@ export type AdminDashboard = {
   totalRevenue: number;
   revenueToday: number;
   pendingOrders: number;
+  reservationFailures: number;
+  refundPending: number;
+  refundFailed: number;
   recentOrders: Order[];
 };
 
 export type AdminProductPage = ProductPage;
 export type AdminCategory = Category;
+
+export type CommerceOperationStatus =
+  | 'PENDING'
+  | 'PUBLISHED'
+  | 'PROCESSING'
+  | 'PROCESSED'
+  | 'DEAD_LETTER';
+
+export type CommerceOperation = {
+  id: string;
+  aggregateType: string;
+  aggregateId: string;
+  eventType: string;
+  status: CommerceOperationStatus;
+  attempts: number;
+  availableAt: string;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CommerceOperationPage = CursorPage<CommerceOperation>;
