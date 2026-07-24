@@ -19,8 +19,9 @@ COPY prisma.generate.config.ts ./prisma.config.ts
 # ============================================================================
 FROM base AS development
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install runtime tools used by health checks and Nest watch mode. Nest CLI
+# relies on `ps` to stop its child process before a hot-reload restart.
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates procps && rm -rf /var/lib/apt/lists/*
 
 # Install all dependencies (skip postinstall to avoid DATABASE_URL requirement at build time)
 RUN bun install --frozen-lockfile --ignore-scripts

@@ -110,9 +110,20 @@ MOMO_ENDPOINT=https://test-payment.momo.vn
 MOMO_IPN_URL=https://REPLACE_WITH_NGROK_URL/api/v1/webhooks/momo
 MOMO_REDIRECT_URL=http://localhost:3000/payment/return
 MOMO_PAYMENT_EXPIRY_MINUTES=15
+# Optional read-only sandbox smoke target
+MOMO_SANDBOX_PROVIDER_ORDER_ID=
 
 # Frontend
 NEXT_PUBLIC_API_URL=http://localhost:3002/api
+
+# Redis and durable commerce workers
+REDIS_URL=redis://redis:6379
+COMMERCE_WORKERS_ENABLED=true
+COMMERCE_WORKER_CONCURRENCY=5
+OUTBOX_POLL_MS=250
+OUTBOX_PROCESSING_TIMEOUT_MS=25000
+ORDER_EXPIRY_SCAN_MS=30000
+COMMERCE_CHECKOUT_WAIT_MS=5000
 
 # ngrok (get token at https://dashboard.ngrok.com)
 NGROK_AUTHTOKEN=

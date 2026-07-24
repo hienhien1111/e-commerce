@@ -1,4 +1,14 @@
 services:
+  redis-test:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    tmpfs:
+      - /data
+
   postgres-test:
     image: postgres:17.5-alpine
     environment:
@@ -7,7 +17,7 @@ services:
       POSTGRES_DB: shop_test
       PGDATA: /var/lib/postgresql/data/pgdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test -d shop_test"]
+      test: ['CMD-SHELL', 'pg_isready -U test -d shop_test']
       interval: 2s
       timeout: 3s
       retries: 15
@@ -24,8 +34,14 @@ services:
     environment:
       NODE_ENV: test
       DATABASE_URL: postgresql://test:test@postgres-test:5432/shop_test?schema=public
+      REDIS_URL: redis://redis-test:6379
+      COMMERCE_WORKERS_ENABLED: 'true'
+      OUTBOX_POLL_MS: '50'
+      ORDER_EXPIRY_SCAN_MS: '1000'
     depends_on:
       postgres-test:
+        condition: service_healthy
+      redis-test:
         condition: service_healthy
     command: >
       sh -c "bunx prisma migrate deploy && bunx prisma db seed && bun run test:e2e"

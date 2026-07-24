@@ -1,23 +1,40 @@
 services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: shop-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - shop-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - shop-network
+
   postgres:
     image: postgres:17.5-alpine
     container_name: shop-postgres
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - '5433:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-shop}
-      POSTGRES_INITDB_ARGS: "-E UTF8"
+      POSTGRES_INITDB_ARGS: '-E UTF8'
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - shop-db:/var/lib/postgresql/data
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-shop}",
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-shop}',
         ]
       interval: 10s
       timeout: 5s
@@ -28,17 +45,17 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"
+          cpus: '1'
           memory: 1G
         reservations:
-          cpus: "0.5"
+          cpus: '0.5'
           memory: 512M
     shm_size: 256mb
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   api:
     build:
@@ -47,11 +64,12 @@ services:
       target: ${BUILD_TARGET:-development}
     container_name: shop-api
     restart: unless-stopped
+    init: true
     env_file:
       - .env
     ports:
-      - "${APP_PORT:-3002}:${APP_PORT:-3002}"
-      - "5555:5555"   # Prisma Studio
+      - '${APP_PORT:-3002}:${APP_PORT:-3002}'
+      - '5555:5555' # Prisma Studio
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-shop}?schema=public
@@ -92,6 +110,13 @@ services:
       MOMO_IPN_URL: ${MOMO_IPN_URL:-}
       MOMO_REDIRECT_URL: ${MOMO_REDIRECT_URL:-http://localhost:3000/payment/return}
       MOMO_PAYMENT_EXPIRY_MINUTES: ${MOMO_PAYMENT_EXPIRY_MINUTES:-15}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      COMMERCE_WORKERS_ENABLED: ${COMMERCE_WORKERS_ENABLED:-true}
+      COMMERCE_WORKER_CONCURRENCY: ${COMMERCE_WORKER_CONCURRENCY:-5}
+      OUTBOX_POLL_MS: ${OUTBOX_POLL_MS:-250}
+      OUTBOX_PROCESSING_TIMEOUT_MS: ${OUTBOX_PROCESSING_TIMEOUT_MS:-25000}
+      ORDER_EXPIRY_SCAN_MS: ${ORDER_EXPIRY_SCAN_MS:-30000}
+      COMMERCE_CHECKOUT_WAIT_MS: ${COMMERCE_CHECKOUT_WAIT_MS:-5000}
     volumes:
       - ./src:/usr/src/app/src:rw
       - ./prisma:/usr/src/app/prisma:rw
@@ -104,11 +129,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "curl -f http://localhost:${APP_PORT:-3002}/api/health || exit 1",
+          'CMD-SHELL',
+          'curl -f http://localhost:${APP_PORT:-3002}/api/health/ready || exit 1',
         ]
       interval: 30s
       timeout: 10s
@@ -119,16 +146,16 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2"
+          cpus: '2'
           memory: 2G
         reservations:
-          cpus: "1"
+          cpus: '1'
           memory: 1G
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   frontend:
     build:
@@ -138,7 +165,7 @@ services:
     container_name: shop-frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002/api}
@@ -151,18 +178,18 @@ services:
     networks:
       - shop-network
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   ngrok:
     image: ngrok/ngrok:latest
     container_name: shop-ngrok
     restart: unless-stopped
-    command: "http api:3002 --log=stdout"
+    command: 'http api:3002 --log=stdout'
     ports:
-      - "4040:4040"
+      - '4040:4040'
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
     depends_on:
@@ -170,10 +197,11 @@ services:
     networks:
       - shop-network
     profiles:
-      - tunnel   # chỉ chạy khi: docker compose --profile tunnel up
+      - tunnel # chỉ chạy khi: docker compose --profile tunnel up
 
 volumes:
   shop-db:
+  shop-redis:
 
 networks:
   shop-network:

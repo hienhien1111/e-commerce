@@ -8,7 +8,9 @@ COPY package.json package-lock.json ./
 FROM base AS development
 RUN npm ci
 COPY . .
+RUN chmod +x /app/docker-dev-entrypoint.sh
 EXPOSE 3000
+ENTRYPOINT ["/app/docker-dev-entrypoint.sh"]
 CMD ["npm", "run", "dev"]
 
 # ============================================================

@@ -54,6 +54,9 @@ lerna-debug.log*
 /frontend/.next/
 /frontend/out/
 /frontend/.eslintcache
+/frontend/coverage/
+/frontend/playwright-report/
+/frontend/test-results/
 
 # TypeScript incremental build metadata
 *.tsbuildinfo
@@ -66,3 +69,6 @@ lerna-debug.log*
 
 # Local secrets (RSA keys for dev/testing)
 /.secrets/
+
+/docs
+/.github
