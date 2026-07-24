@@ -74,8 +74,7 @@ export default [
       'no-undef': 'off',
     },
   },
-  prettierRecommended,
-  // Domain layer isolation: src/domain must NOT import frameworks or ORM
+  // Domain layer isolation: src/domain must NOT import frameworks or outer layers.
   {
     files: ['src/domain/**/*.ts'],
     rules: {
@@ -115,27 +114,27 @@ export default [
             },
             {
               group: ['@/presentation/*', '@/presentation/**'],
-              message:
-                'Domain layer must not import from presentation.',
+              message: 'Domain layer must not import from presentation.',
             },
             {
               group: ['@/application/*', '@/application/**'],
               message:
                 'Domain layer must not import from application. Application depends on domain, not the reverse.',
             },
+            {
+              group: ['@/composition/*', '@/composition/**'],
+              message:
+                'Domain layer must not import from composition. Composition is the outermost layer.',
+            },
           ],
         },
       ],
     },
   },
-  // Application layer isolation: must NOT import Prisma directly or frameworks beyond NestJS
-  // Exception: *.module.ts files are the composition root and may wire infra/presentation
+  // Application layer isolation: composition modules are deliberately outside this tree.
   {
     files: ['src/application/**/*.ts'],
-    ignores: [
-      'src/application/**/*.spec.ts',
-      'src/application/**/*.module.ts',
-    ],
+    ignores: ['src/application/**/*.spec.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -162,8 +161,11 @@ export default [
             },
             {
               group: ['@/presentation/*', '@/presentation/**'],
-              message:
-                'Application layer must not import from presentation.',
+              message: 'Application layer must not import from presentation.',
+            },
+            {
+              group: ['@/composition/*', '@/composition/**'],
+              message: 'Application layer must not import from composition.',
             },
           ],
         },
@@ -179,4 +181,5 @@ export default [
       'node_modules/**/*',
     ],
   },
+  prettierRecommended,
 ];
