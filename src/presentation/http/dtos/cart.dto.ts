@@ -10,7 +10,8 @@ class CartProductDto {
   @ApiProperty() sku!: string;
   @ApiPropertyOptional({ nullable: true }) thumbnailUrl!: string | null;
   @ApiProperty() isAvailable!: boolean;
-  @ApiPropertyOptional({ nullable: true }) availabilityReason!: string | null;
+  @ApiPropertyOptional({ nullable: true })
+  availabilityReason!: string | null;
 }
 
 class CartItemDto {
@@ -18,9 +19,11 @@ class CartItemDto {
   @ApiProperty() productId!: string;
   @ApiProperty() variantId!: string;
   @ApiProperty() quantity!: number;
-  @ApiProperty({ type: CartProductDto }) product!: CartProductDto;
+  @ApiProperty({ type: CartProductDto })
+  product!: CartProductDto;
   @ApiProperty() isAvailable!: boolean;
-  @ApiPropertyOptional({ nullable: true }) availabilityReason!: string | null;
+  @ApiPropertyOptional({ nullable: true })
+  availabilityReason!: string | null;
 }
 
 class CartCouponDto {
@@ -33,12 +36,16 @@ class CartCouponDto {
 
 export class CartDto {
   @ApiPropertyOptional({ nullable: true }) id!: string | null;
-  @ApiProperty({ type: [CartItemDto] }) items!: CartItemDto[];
+  @ApiProperty({ type: [CartItemDto] })
+  items!: CartItemDto[];
   @ApiProperty() itemCount!: number;
   @ApiProperty() subtotal!: number;
   @ApiProperty() discountAmount!: number;
   @ApiProperty() total!: number;
   @ApiProperty() checkoutReady!: boolean;
-  @ApiPropertyOptional({ type: CartCouponDto, nullable: true })
+  @ApiPropertyOptional({
+    type: CartCouponDto,
+    nullable: true,
+  })
   coupon!: CartCouponDto | null;
 }
