@@ -3,9 +3,10 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
-import { ApiError, api } from '@/lib/api';
+import { api } from '@/lib/api';
 import { couponReasonMessage } from '@/lib/cart';
-import { formatVnd, Product } from '@/lib/catalog';
+import { formatVnd } from '@/lib/catalog';
+import type { CatalogV2Product } from '@/lib/catalog-v2';
 import {
   Order,
   PaymentMethod,
@@ -43,7 +44,7 @@ function CheckoutContent() {
       ? requestedQuantity
       : 1;
   const direct = Boolean(directProductId || directVariantId);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<CatalogV2Product | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
   const [loadingProduct, setLoadingProduct] = useState(direct);
   const [address, setAddress] = useState<ShippingAddress>(blankAddress);
@@ -52,6 +53,7 @@ function CheckoutContent() {
   const [coupon, setCoupon] = useState<CouponValidation | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [processingReservation, setProcessingReservation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
 
@@ -64,8 +66,8 @@ function CheckoutContent() {
     let active = true;
     setLoadingProduct(true);
     void api
-      .get<Product>(
-        `v1/products/${directProductId ?? searchParams.get('productId') ?? ''}`,
+      .get<CatalogV2Product>(
+        `v2/products/${directProductId ?? searchParams.get('productId') ?? ''}`,
         { skipAuth: true },
       )
       .then((result) => {
@@ -82,7 +84,9 @@ function CheckoutContent() {
 
   const directVariant =
     product?.variants.find((variant) => variant.id === directVariantId) ??
-    product?.variants.find((variant) => variant.label === null) ??
+    product?.variants.find(
+      (variant) => variant.status === 'ACTIVE' && variant.availableQuantity > 0,
+    ) ??
     null;
 
   const directSubtotal =
@@ -99,7 +103,7 @@ function CheckoutContent() {
                 id: directVariant?.id ?? product.id,
                 name: product.name,
                 quantity: directQuantity,
-                price: directVariant?.price ?? product.price,
+                price: directVariant?.price ?? product.summary.priceMin,
               },
             ]
           : []
@@ -117,8 +121,8 @@ function CheckoutContent() {
   const checkoutReady = direct
     ? Boolean(
         directVariant &&
-          directVariant.isActive &&
-          directVariant.stock >= directQuantity &&
+          directVariant.status === 'ACTIVE' &&
+          directVariant.availableQuantity >= directQuantity &&
           directQuantity > 0,
       )
     : cart.checkoutReady;
@@ -156,7 +160,7 @@ function CheckoutContent() {
     setBusy(true);
     setError(null);
     try {
-      const order = direct
+      let order = direct
         ? await api.post<Order>('v1/orders/buy-now', {
             productId: directProductId ?? undefined,
             variantId: directVariantId ?? directVariant?.id,
@@ -171,6 +175,28 @@ function CheckoutContent() {
             shippingAddress: address,
             paymentMethod,
           });
+      if (order.reservationStatus === 'PENDING') {
+        setProcessingReservation(true);
+        for (let attempt = 0; attempt < 30; attempt += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+          order = await api.get<Order>(`v1/orders/${order.id}`);
+          if (order.reservationStatus !== 'PENDING') break;
+        }
+      }
+      if (order.reservationStatus === 'FAILED') {
+        throw new Error(
+          order.cancellationReason ||
+            'Không thể giữ đủ tồn kho cho đơn hàng này.',
+        );
+      }
+      if (order.reservationStatus === 'PENDING') {
+        toast.show(
+          'Đơn hàng đang được giữ tồn kho. Bạn có thể theo dõi tại chi tiết đơn.',
+          'warning',
+        );
+        router.replace(`/orders/${order.id}`);
+        return;
+      }
       if (!direct) {
         await refresh();
         setOpen(false);
@@ -183,10 +209,11 @@ function CheckoutContent() {
       );
     } catch (cause) {
       const message =
-        cause instanceof ApiError ? cause.message : 'Không thể đặt hàng.';
+        cause instanceof Error ? cause.message : 'Không thể đặt hàng.';
       setError(message);
       toast.error(message);
     } finally {
+      setProcessingReservation(false);
       setBusy(false);
     }
   };
@@ -347,7 +374,9 @@ function CheckoutContent() {
             </dl>
             <button className="btn btn-primary" disabled={busy} type="submit">
               {busy
-                ? 'Đang đặt hàng…'
+                ? processingReservation
+                  ? 'Đang giữ tồn kho…'
+                  : 'Đang đặt hàng…'
                 : paymentMethod === 'MOMO'
                   ? 'Đặt hàng và thanh toán MoMo'
                   : 'Đặt hàng'}

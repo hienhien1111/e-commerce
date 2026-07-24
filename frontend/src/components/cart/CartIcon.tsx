@@ -14,7 +14,9 @@ export function CartIcon() {
     >
       <span aria-hidden="true">🛒</span>
       <span className={styles.label}>Giỏ hàng</span>
-      {cart.itemCount > 0 && <span className={styles.badge}>{cart.itemCount}</span>}
+      {cart.itemCount > 0 && (
+        <span className={styles.badge}>{cart.itemCount}</span>
+      )}
     </button>
   );
 }

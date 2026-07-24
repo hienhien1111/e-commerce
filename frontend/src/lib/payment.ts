@@ -13,7 +13,9 @@ export type Payment = {
   paidAt: string | null;
 };
 
-export function decodePaymentReturnOrderId(extraData: string | null): string | null {
+export function decodePaymentReturnOrderId(
+  extraData: string | null,
+): string | null {
   if (!extraData) return null;
   try {
     const parsed = JSON.parse(atob(extraData)) as { orderId?: unknown };

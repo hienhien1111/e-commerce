@@ -5,8 +5,12 @@
   gap: 5px;
   position: relative;
 }
-.button:hover { color: var(--color-primary); }
-.label { font-weight: 500; }
+.button:hover {
+  color: var(--color-primary);
+}
+.label {
+  font-weight: 500;
+}
 .badge {
   align-items: center;
   background: var(--color-primary);
@@ -19,4 +23,8 @@
   min-width: 17px;
   padding: 1px 5px;
 }
-@media (max-width: 480px) { .label { display: none; } }
+@media (max-width: 480px) {
+  .label {
+    display: none;
+  }
+}
