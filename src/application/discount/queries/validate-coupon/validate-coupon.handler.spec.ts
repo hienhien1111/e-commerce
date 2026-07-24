@@ -20,7 +20,10 @@ describe('ValidateCouponHandler', () => {
     });
     await expect(
       handler.execute(new ValidateCouponQuery('sale10', 500000)),
-    ).resolves.toEqual({ valid: true, discountAmount: 50000 });
+    ).resolves.toEqual({
+      valid: true,
+      discountAmount: 50000,
+    });
 
     validation.validateByCode.mockResolvedValueOnce({
       valid: false,
@@ -29,6 +32,10 @@ describe('ValidateCouponHandler', () => {
     });
     await expect(
       handler.execute(new ValidateCouponQuery('expired', 500000)),
-    ).resolves.toEqual({ valid: false, discountAmount: 0, reason: 'EXPIRED' });
+    ).resolves.toEqual({
+      valid: false,
+      discountAmount: 0,
+      reason: 'EXPIRED',
+    });
   });
 });

@@ -24,6 +24,31 @@ describe('Cart', () => {
     expect(cart.itemCount).toBe(3);
   });
 
+  it('keeps different variants of the same product as separate lines', () => {
+    const cart = CartFactory.create({
+      userId: 'user-1',
+      couponId: null,
+      items: [],
+    });
+    cart.addItem(
+      CartItemFactory.create({
+        productId: 'product-1',
+        variantId: 'variant-red',
+        quantity: 1,
+      }),
+    );
+    cart.addItem(
+      CartItemFactory.create({
+        productId: 'product-1',
+        variantId: 'variant-blue',
+        quantity: 2,
+      }),
+    );
+
+    expect(cart.items).toHaveLength(2);
+    expect(cart.itemCount).toBe(3);
+  });
+
   it('removes an item when quantity is updated to zero and clears coupon', () => {
     const cart = CartFactory.create({
       userId: 'user-1',
